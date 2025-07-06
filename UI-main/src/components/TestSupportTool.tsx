@@ -45,19 +45,19 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
     loadSpaces();
   }, []);
 
-  // Auto-select space if provided via URL
-  useEffect(() => {
-    if (autoSpaceKey && isSpaceAutoConnected) {
-      setSelectedSpace(autoSpaceKey);
-    }
-  }, [autoSpaceKey, isSpaceAutoConnected]);
-
   // Load pages when space is selected
   useEffect(() => {
     if (selectedSpace) {
       loadPages();
     }
   }, [selectedSpace]);
+
+  // Add useEffect for auto-space selection
+  useEffect(() => {
+    if (autoSpaceKey && isSpaceAutoConnected) {
+      setSelectedSpace(autoSpaceKey);
+    }
+  }, [autoSpaceKey, isSpaceAutoConnected]);
 
   const loadSpaces = async () => {
     try {
@@ -301,10 +301,11 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
             </div>
           )}
 
+          {/* Show connection status if space is auto-connected */}
           {isSpaceAutoConnected && autoSpaceKey && (
-            <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center">
-              <CheckCircle className="w-5 h-5 mr-2" />
-              <span>✅ Connected to Confluence! Auto-detected space: <strong>{autoSpaceKey}</strong></span>
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center text-sm">
+              <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span>Connected to Confluence space: <strong>{autoSpaceKey}</strong></span>
             </div>
           )}
 

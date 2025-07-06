@@ -1,13 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Image, Download, Save, X, ChevronDown, Loader2, MessageSquare, BarChart3, Search, Video, Code, TrendingUp, TestTube, Eye, Zap, CheckCircle } from 'lucide-react';
+import { Image, Download, Save, X, ChevronDown, Loader2, MessageSquare, BarChart3, Search, Video, Code, TrendingUp, TestTube, Eye, Zap } from 'lucide-react';
 import { FeatureType } from '../App';
 import { apiService } from '../services/api';
 
 interface ImageInsightsProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
-  autoSpaceKey?: string | null;
-  isSpaceAutoConnected?: boolean;
 }
 
 interface ImageData {
@@ -25,7 +23,7 @@ interface ChartData {
   title: string;
 }
 
-const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
+const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect }) => {
   const [spaceKey, setSpaceKey] = useState<string>('');
   const [selectedPages, setSelectedPages] = useState<string[]>([]);
   const [images, setImages] = useState<ImageData[]>([]);
@@ -64,13 +62,6 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     };
     loadSpaces();
   }, []);
-
-  // Auto-select space if provided via URL
-  useEffect(() => {
-    if (autoSpaceKey && isSpaceAutoConnected) {
-      setSpaceKey(autoSpaceKey);
-    }
-  }, [autoSpaceKey, isSpaceAutoConnected]);
 
   // Load pages when space key changes
   useEffect(() => {
@@ -529,12 +520,6 @@ ${JSON.stringify(chartData.data, null, 2)}
           </div>
         </div>
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {isSpaceAutoConnected && autoSpaceKey && (
-            <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center">
-              <CheckCircle className="w-5 h-5 mr-2" />
-              <span>✅ Connected to Confluence! Auto-detected space: <strong>{autoSpaceKey}</strong></span>
-            </div>
-          )}
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
             {/* Left Column - Image Selection */}
             <div className="xl:col-span-1">
