@@ -13,34 +13,32 @@ function App() {
   const [activeFeature, setActiveFeature] = useState<FeatureType>(null);
   const [isAppOpen, setIsAppOpen] = useState(false);
   const [autoSpaceKey, setAutoSpaceKey] = useState<string | null>(null);
-  const [isSpaceAutoConnected, setIsSpaceAutoConnected] = useState(false);
 
-  // Extract space key from URL on component mount
+  // Extract space key from URL parameter
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const spaceKey = urlParams.get('space');
     if (spaceKey) {
       setAutoSpaceKey(spaceKey);
-      setIsSpaceAutoConnected(true);
     }
   }, []);
 
   const renderActiveFeature = () => {
     switch (activeFeature) {
       case 'search':
-        return <AIPoweredSearch onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={isSpaceAutoConnected} />;
+        return <AIPoweredSearch onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={!!autoSpaceKey} />;
       case 'video':
-        return <VideoSummarizer onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={isSpaceAutoConnected} />;
+        return <VideoSummarizer onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={!!autoSpaceKey} />;
       case 'code':
-        return <CodeAssistant onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={isSpaceAutoConnected} />;
+        return <CodeAssistant onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={!!autoSpaceKey} />;
       case 'impact':
-        return <ImpactAnalyzer onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={isSpaceAutoConnected} />;
+        return <ImpactAnalyzer onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={!!autoSpaceKey} />;
       case 'test':
-        return <TestSupportTool onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={isSpaceAutoConnected} />;
+        return <TestSupportTool onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={!!autoSpaceKey} />;
       case 'image':
-        return <ImageInsights onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={isSpaceAutoConnected} />;
+        return <ImageInsights onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={!!autoSpaceKey} />;
       default:
-        return <AIPoweredSearch onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={isSpaceAutoConnected} />;
+        return <AIPoweredSearch onClose={() => setActiveFeature(null)} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={!!autoSpaceKey} />;
     }
   };
 
@@ -65,7 +63,7 @@ function App() {
           {activeFeature ? (
             renderActiveFeature()
           ) : (
-            <AIPoweredSearch onClose={handleAppClose} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={isSpaceAutoConnected} />
+            <AIPoweredSearch onClose={handleAppClose} onFeatureSelect={setActiveFeature} autoSpaceKey={autoSpaceKey} isSpaceAutoConnected={!!autoSpaceKey} />
           )}
         </div>
       )}

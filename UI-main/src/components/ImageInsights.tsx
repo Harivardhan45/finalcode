@@ -6,6 +6,8 @@ import { apiService } from '../services/api';
 interface ImageInsightsProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
+  autoSpaceKey?: string | null;
+  isSpaceAutoConnected?: boolean;
 }
 
 interface ImageData {
@@ -23,7 +25,7 @@ interface ChartData {
   title: string;
 }
 
-const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect }) => {
+const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [spaceKey, setSpaceKey] = useState<string>('');
   const [selectedPages, setSelectedPages] = useState<string[]>([]);
   const [images, setImages] = useState<ImageData[]>([]);
@@ -62,6 +64,13 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect 
     };
     loadSpaces();
   }, []);
+
+  // Auto-select space if provided via URL
+  useEffect(() => {
+    if (autoSpaceKey && isSpaceAutoConnected) {
+      setSpaceKey(autoSpaceKey);
+    }
+  }, [autoSpaceKey, isSpaceAutoConnected]);
 
   // Load pages when space key changes
   useEffect(() => {

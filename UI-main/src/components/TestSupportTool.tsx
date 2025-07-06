@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TestTube, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image, CheckCircle } from 'lucide-react';
+import { TestTube, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image } from 'lucide-react';
 import { FeatureType } from '../App';
 import { apiService, Space } from '../services/api';
 import ReactMarkdown from 'react-markdown';
@@ -45,19 +45,19 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
     loadSpaces();
   }, []);
 
+  // Auto-select space if provided via URL
+  useEffect(() => {
+    if (autoSpaceKey && isSpaceAutoConnected) {
+      setSelectedSpace(autoSpaceKey);
+    }
+  }, [autoSpaceKey, isSpaceAutoConnected]);
+
   // Load pages when space is selected
   useEffect(() => {
     if (selectedSpace) {
       loadPages();
     }
   }, [selectedSpace]);
-
-  // Add useEffect for auto-space selection
-  useEffect(() => {
-    if (autoSpaceKey && isSpaceAutoConnected) {
-      setSelectedSpace(autoSpaceKey);
-    }
-  }, [autoSpaceKey, isSpaceAutoConnected]);
 
   const loadSpaces = async () => {
     try {
@@ -298,14 +298,6 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
           {error && (
             <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
               {error}
-            </div>
-          )}
-
-          {/* Show connection status if space is auto-connected */}
-          {isSpaceAutoConnected && autoSpaceKey && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center text-sm">
-              <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-              <span>Connected to Confluence space: <strong>{autoSpaceKey}</strong></span>
             </div>
           )}
 

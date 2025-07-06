@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Code, FileText, Download, Save, X, ChevronDown, Loader2, Zap, Search, Video, TrendingUp, TestTube, Image, CheckCircle } from 'lucide-react';
+import { Code, FileText, Download, Save, X, ChevronDown, Loader2, Zap, Search, Video, TrendingUp, TestTube, Image } from 'lucide-react';
 import { FeatureType } from '../App';
 import { apiService, Space } from '../services/api';
 
@@ -10,12 +10,7 @@ interface CodeAssistantProps {
   isSpaceAutoConnected?: boolean;
 }
 
-const CodeAssistant: React.FC<CodeAssistantProps> = ({ 
-  onClose, 
-  onFeatureSelect, 
-  autoSpaceKey, 
-  isSpaceAutoConnected 
-}) => {
+const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [selectedSpace, setSelectedSpace] = useState('');
   const [selectedPage, setSelectedPage] = useState('');
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -48,19 +43,19 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({
     loadSpaces();
   }, []);
 
+  // Auto-select space if provided via URL
+  useEffect(() => {
+    if (autoSpaceKey && isSpaceAutoConnected) {
+      setSelectedSpace(autoSpaceKey);
+    }
+  }, [autoSpaceKey, isSpaceAutoConnected]);
+
   // Load pages when space is selected
   useEffect(() => {
     if (selectedSpace) {
       loadPages();
     }
   }, [selectedSpace]);
-
-  // Add useEffect for auto-space selection
-  useEffect(() => {
-    if (autoSpaceKey && isSpaceAutoConnected) {
-      setSelectedSpace(autoSpaceKey);
-    }
-  }, [autoSpaceKey, isSpaceAutoConnected]);
 
   const loadSpaces = async () => {
     try {
@@ -209,14 +204,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({
           {error && (
             <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
               {error}
-            </div>
-          )}
-
-          {/* Show connection status if space is auto-connected */}
-          {isSpaceAutoConnected && autoSpaceKey && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center text-sm">
-              <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-              <span>Connected to Confluence space: <strong>{autoSpaceKey}</strong></span>
             </div>
           )}
 

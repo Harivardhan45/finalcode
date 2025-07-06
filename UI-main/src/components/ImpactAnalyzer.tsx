@@ -23,12 +23,7 @@ interface RiskLevel {
   factors: string[];
 }
 
-const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ 
-  onClose, 
-  onFeatureSelect, 
-  autoSpaceKey, 
-  isSpaceAutoConnected 
-}) => {
+const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [selectedSpace, setSelectedSpace] = useState('');
   const [oldPage, setOldPage] = useState('');
   const [newPage, setNewPage] = useState('');
@@ -59,19 +54,19 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({
     loadSpaces();
   }, []);
 
+  // Auto-select space if provided via URL
+  useEffect(() => {
+    if (autoSpaceKey && isSpaceAutoConnected) {
+      setSelectedSpace(autoSpaceKey);
+    }
+  }, [autoSpaceKey, isSpaceAutoConnected]);
+
   // Load pages when space is selected
   useEffect(() => {
     if (selectedSpace) {
       loadPages();
     }
   }, [selectedSpace]);
-
-  // Add useEffect for auto-space selection
-  useEffect(() => {
-    if (autoSpaceKey && isSpaceAutoConnected) {
-      setSelectedSpace(autoSpaceKey);
-    }
-  }, [autoSpaceKey, isSpaceAutoConnected]);
 
   const loadSpaces = async () => {
     try {
@@ -566,14 +561,6 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
               )}
             </div>
           </div>
-
-          {/* Add connection message if space is auto-connected */}
-          {isSpaceAutoConnected && autoSpaceKey && (
-            <div className="mt-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center text-sm">
-              <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-              <span>Connected to Confluence space: <strong>{autoSpaceKey}</strong></span>
-            </div>
-          )}
         </div>
       </div>
     </div>
