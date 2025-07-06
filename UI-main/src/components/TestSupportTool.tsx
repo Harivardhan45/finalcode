@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TestTube, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image } from 'lucide-react';
+import { TestTube, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image, CheckCircle } from 'lucide-react';
 import { FeatureType } from '../App';
 import { apiService, Space } from '../services/api';
 import ReactMarkdown from 'react-markdown';
@@ -7,6 +7,8 @@ import ReactMarkdown from 'react-markdown';
 interface TestSupportToolProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
+  autoSpaceKey?: string | null;
+  isSpaceAutoConnected?: boolean;
 }
 
 interface TestReport {
@@ -15,7 +17,7 @@ interface TestReport {
   sensitivity?: string;
 }
 
-const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSelect }) => {
+const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [selectedSpace, setSelectedSpace] = useState('');
   const [codePage, setCodePage] = useState('');
   const [testInputPage, setTestInputPage] = useState('');
@@ -42,6 +44,13 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   useEffect(() => {
     loadSpaces();
   }, []);
+
+  // Auto-select space if provided via URL
+  useEffect(() => {
+    if (autoSpaceKey && isSpaceAutoConnected) {
+      setSelectedSpace(autoSpaceKey);
+    }
+  }, [autoSpaceKey, isSpaceAutoConnected]);
 
   // Load pages when space is selected
   useEffect(() => {
@@ -289,6 +298,13 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
           {error && (
             <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
               {error}
+            </div>
+          )}
+
+          {isSpaceAutoConnected && autoSpaceKey && (
+            <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center">
+              <CheckCircle className="w-5 h-5 mr-2" />
+              <span>✅ Connected to Confluence! Auto-detected space: <strong>{autoSpaceKey}</strong></span>
             </div>
           )}
 

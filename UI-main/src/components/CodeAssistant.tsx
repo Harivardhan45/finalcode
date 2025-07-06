@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Code, FileText, Download, Save, X, ChevronDown, Loader2, Zap, Search, Video, TrendingUp, TestTube, Image } from 'lucide-react';
+import { Code, FileText, Download, Save, X, ChevronDown, Loader2, Zap, Search, Video, TrendingUp, TestTube, Image, CheckCircle } from 'lucide-react';
 import { FeatureType } from '../App';
 import { apiService, Space } from '../services/api';
 
 interface CodeAssistantProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
+  autoSpaceKey?: string | null;
+  isSpaceAutoConnected?: boolean;
 }
 
-const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect }) => {
+const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [selectedSpace, setSelectedSpace] = useState('');
   const [selectedPage, setSelectedPage] = useState('');
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -40,6 +42,13 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect 
   useEffect(() => {
     loadSpaces();
   }, []);
+
+  // Auto-select space if provided via URL
+  useEffect(() => {
+    if (autoSpaceKey && isSpaceAutoConnected) {
+      setSelectedSpace(autoSpaceKey);
+    }
+  }, [autoSpaceKey, isSpaceAutoConnected]);
 
   // Load pages when space is selected
   useEffect(() => {
@@ -195,6 +204,13 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect 
           {error && (
             <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
               {error}
+            </div>
+          )}
+
+          {isSpaceAutoConnected && autoSpaceKey && (
+            <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center">
+              <CheckCircle className="w-5 h-5 mr-2" />
+              <span>✅ Connected to Confluence! Auto-detected space: <strong>{autoSpaceKey}</strong></span>
             </div>
           )}
 

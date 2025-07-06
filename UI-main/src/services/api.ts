@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://finalui-1l50.onrender.com';
+const API_BASE_URL = 'https://finalui-1l50.onrender.com';
 
 export interface SearchRequest {
   space_key: string;

@@ -6,6 +6,8 @@ import { apiService, Space } from '../services/api';
 interface ImpactAnalyzerProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
+  autoSpaceKey?: string | null;
+  isSpaceAutoConnected?: boolean;
 }
 
 interface DiffMetrics {
@@ -21,7 +23,7 @@ interface RiskLevel {
   factors: string[];
 }
 
-const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelect }) => {
+const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [selectedSpace, setSelectedSpace] = useState('');
   const [oldPage, setOldPage] = useState('');
   const [newPage, setNewPage] = useState('');
@@ -51,6 +53,13 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
   useEffect(() => {
     loadSpaces();
   }, []);
+
+  // Auto-select space if provided via URL
+  useEffect(() => {
+    if (autoSpaceKey && isSpaceAutoConnected) {
+      setSelectedSpace(autoSpaceKey);
+    }
+  }, [autoSpaceKey, isSpaceAutoConnected]);
 
   // Load pages when space is selected
   useEffect(() => {
