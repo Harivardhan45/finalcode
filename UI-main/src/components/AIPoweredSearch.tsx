@@ -140,32 +140,44 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-40 p-4">
+      <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/20">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-600" />
+        <div className="bg-gradient-to-r from-confluence-blue/90 to-confluence-light-blue/90 backdrop-blur-xl p-6 text-white border-b border-white/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Search className="w-8 h-8" />
+              <div>
+                <h2 className="text-2xl font-bold">Confluence AI Assistant</h2>
+                <p className="text-blue-100/90">AI-powered tools for your Confluence workspace</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
+              <X className="w-6 h-6" />
             </button>
-            <h1 className="text-2xl font-bold text-gray-800">AI Powered Search</h1>
           </div>
           
           {/* Feature Navigation */}
-          <div className="flex items-center space-x-2">
-            {features.map(feature => (
-              <button
-                key={feature.id}
-                onClick={() => onFeatureSelect(feature.id)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors group"
-                title={feature.label}
-              >
-                <feature.icon className="w-5 h-5 text-gray-600 group-hover:text-confluence-blue" />
-              </button>
-            ))}
+          <div className="mt-6 flex gap-2">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+              const isActive = feature.id === 'search';
+              
+              return (
+                <button
+                  key={feature.id}
+                  onClick={() => onFeatureSelect(feature.id)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg backdrop-blur-sm border transition-all duration-200 whitespace-nowrap ${
+                    isActive
+                      ? 'bg-white/90 text-confluence-blue shadow-lg border-white/30'
+                      : 'bg-white/10 text-white hover:bg-white/20 border-white/10'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm font-medium">{feature.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
