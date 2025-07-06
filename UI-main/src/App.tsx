@@ -53,7 +53,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-confluence-blue/10 to-confluence-light-blue/5 p-4">
       {!isAppOpen && (
         <CircularLauncher onClick={handleLauncherClick} />
       )}
