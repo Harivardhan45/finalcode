@@ -32,7 +32,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
-        "https://your-app-name.onrender.com",  # Add your Render URL
+        "https://finalui-1l50.onrender.com",  # Add your Render URL
         "*"  # For development, you can allow all origins
     ],
     allow_credentials=True,
