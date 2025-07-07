@@ -808,30 +808,6 @@ ${JSON.stringify(chartData.data, null, 2)}
                                 </>
                               )}
                             </button>
-                            <button
-                              onClick={async () => {
-                                const { space, page } = getConfluenceSpaceAndPageFromUrl();
-                                if (!space || !page) {
-                                  alert('Confluence space or page not specified in macro src URL.');
-                                  return;
-                                }
-                                try {
-                                  await apiService.saveToConfluence({
-                                    space_key: space,
-                                    page_title: page,
-                                    content: chartData?.title || 'Chart',
-                                  });
-                                  setShowToast(true);
-                                  setTimeout(() => setShowToast(false), 3000);
-                                } catch (err: any) {
-                                  alert('Failed to save to Confluence: ' + (err.message || err));
-                                }
-                              }}
-                              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
-                            >
-                              <Save className="w-4 h-4" />
-                              <span>Save to Confluence</span>
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -990,6 +966,37 @@ ${JSON.stringify(chartData.data, null, 2)}
                     ))}
                   </div>
                 </div>
+                {selectedImage && (
+                  <button
+                    onClick={async () => {
+                      const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                      if (!space || !page) {
+                        alert('Confluence space or page not specified in macro src URL.');
+                        return;
+                      }
+                      const selectedImageData = images.find(img => img.id === selectedImage);
+                      if (!selectedImageData || !selectedImageData.summary) {
+                        alert('No summary available for the selected image.');
+                        return;
+                      }
+                      try {
+                        await apiService.saveToConfluence({
+                          space_key: space,
+                          page_title: page,
+                          content: selectedImageData.summary,
+                        });
+                        setShowToast(true);
+                        setTimeout(() => setShowToast(false), 3000);
+                      } catch (err: any) {
+                        alert('Failed to save to Confluence: ' + (err.message || err));
+                      }
+                    }}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10 mt-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Save Summary to Confluence</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
