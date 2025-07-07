@@ -8,11 +8,13 @@ const CircularLauncher: React.FC<CircularLauncherProps> = ({ onClick }) => {
   // Initialize position at top right
   const [position, setPosition] = useState({ x: window.innerWidth - 100, y: 20 });
   const [isDragging, setIsDragging] = useState(false);
+  const [dragged, setDragged] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
+    setDragged(false);
     setDragStart({
       x: e.clientX - position.x,
       y: e.clientY - position.y
@@ -21,6 +23,7 @@ const CircularLauncher: React.FC<CircularLauncherProps> = ({ onClick }) => {
 
   const handleMouseMove = (e: MouseEvent) => {
     if (isDragging) {
+      setDragged(true);
       const newX = e.clientX - dragStart.x;
       const newY = e.clientY - dragStart.y;
       
@@ -40,7 +43,7 @@ const CircularLauncher: React.FC<CircularLauncherProps> = ({ onClick }) => {
   };
 
   const handleClick = (e: React.MouseEvent) => {
-    if (!isDragging) {
+    if (!isDragging && !dragged) {
       onClick();
     }
   };
