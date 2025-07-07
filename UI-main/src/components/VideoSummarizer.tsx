@@ -603,7 +603,7 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                                   page_title: page,
                                   content: video.summary || '',
                                 });
-                                alert('Saved to Confluence!');
+                                window.parent.location.reload();
                               } catch (err: any) {
                                 alert('Failed to save to Confluence: ' + (err.message || err));
                               }

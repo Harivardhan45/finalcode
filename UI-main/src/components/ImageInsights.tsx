@@ -820,7 +820,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                                     page_title: page,
                                     content: chartData?.title || 'Chart',
                                   });
-                                  alert('Saved to Confluence!');
+                                  window.parent.location.reload();
                                 } catch (err: any) {
                                   alert('Failed to save to Confluence: ' + (err.message || err));
                                 }

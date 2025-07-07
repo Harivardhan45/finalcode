@@ -383,7 +383,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                               page_title: page,
                               content: processedCode || '',
                             });
-                            alert('Saved to Confluence!');
+                            window.parent.location.reload();
                           } catch (err: any) {
                             alert('Failed to save to Confluence: ' + (err.message || err));
                           }
@@ -451,7 +451,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                               page_title: page,
                               content: processedCode || '',
                             });
-                            alert('Saved to Confluence!');
+                            window.parent.location.reload();
                           } catch (err: any) {
                             alert('Failed to save to Confluence: ' + (err.message || err));
                           }

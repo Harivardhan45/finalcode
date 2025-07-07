@@ -369,7 +369,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                               page_title: page,
                               content: response || '',
                             });
-                            alert('Saved to Confluence!');
+                            window.parent.location.reload();
                           } catch (err: any) {
                             alert('Failed to save to Confluence: ' + (err.message || err));
                           }
