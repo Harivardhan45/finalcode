@@ -104,6 +104,11 @@ class ExportRequest(BaseModel):
     format: str
     filename: str
 
+class SaveToConfluenceRequest(BaseModel):
+    space_key: Optional[str] = None
+    page_title: str
+    content: str
+
 # Helper functions
 def remove_emojis(text):
     emoji_pattern = re.compile(
@@ -1133,6 +1138,36 @@ async def export_content(request: ExportRequest):
             buffer = create_txt(request.content)
             file_data = buffer.getvalue()
             return {"file": file_data.decode('utf-8'), "mime": "text/plain", "filename": f"{request.filename}.txt"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/save-to-confluence")
+async def save_to_confluence(request: SaveToConfluenceRequest):
+    """
+    Update the content of a Confluence page (storage format).
+    """
+    try:
+        confluence = init_confluence()
+        space_key = auto_detect_space(confluence, request.space_key)
+        # Get page by title
+        page = confluence.get_page_by_title(space=space_key, title=request.page_title)
+        if not page:
+            raise HTTPException(status_code=404, detail="Page not found")
+        page_id = page["id"]
+        # Get current version
+        current_version = page["version"]["number"]
+        # Update page
+        confluence.update_page(
+            page_id=page_id,
+            title=request.page_title,
+            body=request.content,
+            parent_id=None,
+            type='page',
+            representation='storage',
+            minor_edit=False,
+            version=current_version + 1
+        )
+        return {"message": "Page updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
