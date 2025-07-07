@@ -8,7 +8,7 @@ import traceback
 import warnings
 import requests
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fpdf import FPDF
@@ -244,9 +244,11 @@ async def get_pages(space_key: Optional[str] = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/search")
-async def ai_powered_search(request: SearchRequest):
+async def ai_powered_search(request: SearchRequest, req: Request):
     """AI Powered Search functionality"""
     try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -289,7 +291,7 @@ async def ai_powered_search(request: SearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/video-summarizer")
-async def video_summarizer(request: VideoRequest):
+async def video_summarizer(request: VideoRequest, req: Request):
     """Video Summarizer functionality using AssemblyAI and Gemini"""
     import requests
     import tempfile
@@ -335,10 +337,10 @@ async def video_summarizer(request: VideoRequest):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"ffmpeg audio extraction failed: {e}")
         # Upload audio to AssemblyAI
-        assemblyai_api_key = os.getenv('ASSEMBLYAI_API_KEY')
-        if not assemblyai_api_key:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        if not api_key:
             raise HTTPException(status_code=500, detail="AssemblyAI API key not configured")
-        headers = {"authorization": assemblyai_api_key}
+        headers = {"authorization": api_key}
         with open(audio_path, "rb") as f:
             upload_response = requests.post(
                 "https://api.assemblyai.com/v2/upload",
@@ -436,9 +438,11 @@ async def video_summarizer(request: VideoRequest):
 
 
 @app.post("/code-assistant")
-async def code_assistant(request: CodeRequest):
+async def code_assistant(request: CodeRequest, req: Request):
     """Code Assistant functionality"""
     try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -526,9 +530,11 @@ async def code_assistant(request: CodeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/impact-analyzer")
-async def impact_analyzer(request: ImpactRequest):
+async def impact_analyzer(request: ImpactRequest, req: Request):
     """Impact Analyzer functionality"""
     try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -691,9 +697,11 @@ Answer:"""
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/test-support")
-async def test_support(request: TestRequest):
+async def test_support(request: TestRequest, req: Request):
     """Test Support Tool functionality"""
     try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
         print(f"Test support request: {request}")  # Debug log
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
@@ -909,9 +917,11 @@ async def get_images(space_key: Optional[str] = None, page_title: str = ""):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/image-summary")
-async def image_summary(request: ImageRequest):
+async def image_summary(request: ImageRequest, req: Request):
     """Generate AI summary for an image"""
     try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -950,9 +960,11 @@ async def image_summary(request: ImageRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/image-qa")
-async def image_qa(request: ImageSummaryRequest):
+async def image_qa(request: ImageSummaryRequest, req: Request):
     """Generate AI response for a question about an image"""
     try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -992,9 +1004,11 @@ async def image_qa(request: ImageSummaryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/create-chart")
-async def create_chart(request: ChartRequest):
+async def create_chart(request: ChartRequest, req: Request):
     """Create chart from image data"""
     try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -1111,9 +1125,11 @@ async def create_chart(request: ChartRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/export")
-async def export_content(request: ExportRequest):
+async def export_content(request: ExportRequest, req: Request):
     """Export content in various formats"""
     try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
         if request.format == "pdf":
             buffer = create_pdf(request.content)
             file_data = buffer.getvalue()
@@ -1142,11 +1158,13 @@ async def export_content(request: ExportRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/save-to-confluence")
-async def save_to_confluence(request: SaveToConfluenceRequest):
+async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
     """
     Update the content of a Confluence page (storage format).
     """
     try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, request.space_key)
         # Get page by title, expand body.storage
@@ -1172,6 +1190,14 @@ async def save_to_confluence(request: SaveToConfluenceRequest):
 async def test_endpoint():
     """Test endpoint to verify backend is working"""
     return {"message": "Backend is working", "status": "ok"}
+
+def get_actual_api_key_from_identifier(identifier: str) -> str:
+    if identifier and identifier.startswith('GENAI_API_KEY_'):
+        key = os.getenv(identifier)
+        if key:
+            return key
+    # fallback
+    return os.getenv('GENAI_API_KEY_1')
 
 if __name__ == "__main__":
     import uvicorn

@@ -146,20 +146,31 @@ export interface SaveToConfluenceResponse {
 }
 
 class ApiService {
+  private getSelectedApiKey(): string | undefined {
+    if (typeof window !== 'undefined' && localStorage.getItem('selectedApiKeyId')) {
+      return localStorage.getItem('selectedApiKeyId') || undefined;
+    }
+    return undefined;
+  }
+
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const apiKey = this.getSelectedApiKey();
+    const baseHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const optHeaders = (options && options.headers && typeof options.headers === 'object' && !Array.isArray(options.headers)) ? options.headers : {};
+    const headers: Record<string, string> = Object.assign({}, baseHeaders, optHeaders);
+    if (apiKey) {
+      headers['x-api-key'] = apiKey;
+    }
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      headers,
       ...options,
     });
-
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || 'API request failed');
     }
-
     return response.json();
   }
 
