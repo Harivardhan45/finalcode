@@ -47,7 +47,6 @@ if not GEMINI_API_KEY:
 
 # Configure Gemini AI
 genai.configure(api_key=GEMINI_API_KEY)
-ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
 
 # Pydantic models for request/response
 class SearchRequest(BaseModel):
@@ -249,6 +248,7 @@ async def ai_powered_search(request: SearchRequest, req: Request):
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -443,6 +443,7 @@ async def code_assistant(request: CodeRequest, req: Request):
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -535,6 +536,7 @@ async def impact_analyzer(request: ImpactRequest, req: Request):
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -702,6 +704,7 @@ async def test_support(request: TestRequest, req: Request):
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         print(f"Test support request: {request}")  # Debug log
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
@@ -922,6 +925,7 @@ async def image_summary(request: ImageRequest, req: Request):
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -965,6 +969,7 @@ async def image_qa(request: ImageSummaryRequest, req: Request):
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -1009,6 +1014,7 @@ async def create_chart(request: ChartRequest, req: Request):
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
         
@@ -1130,6 +1136,7 @@ async def export_content(request: ExportRequest, req: Request):
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         if request.format == "pdf":
             buffer = create_pdf(request.content)
             file_data = buffer.getvalue()
@@ -1165,6 +1172,7 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, request.space_key)
         # Get page by title, expand body.storage
