@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Download, Save, FileText, X, ChevronDown, Loader2, Settings, Video, Code, TrendingUp, TestTube, Image, CheckCircle } from 'lucide-react';
 import { FeatureType } from '../App';
 import { apiService, Space } from '../services/api';
+import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 
 interface AIPoweredSearchProps {
   onClose: () => void;
@@ -188,8 +189,6 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
             </div>
           )}
 
-
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Search Configuration */}
             <div className="space-y-6">
@@ -358,7 +357,23 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                         <span>Export</span>
                       </button>
                       <button
-                        onClick={() => alert('Save to Confluence functionality will be implemented in the next iteration')}
+                        onClick={async () => {
+                          const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                          if (!space || !page) {
+                            alert('Confluence space or page not specified in macro src URL.');
+                            return;
+                          }
+                          try {
+                            await apiService.saveToConfluence({
+                              space_key: space,
+                              page_title: page,
+                              content: response || '',
+                            });
+                            alert('Saved to Confluence!');
+                          } catch (err: any) {
+                            alert('Failed to save to Confluence: ' + (err.message || err));
+                          }
+                        }}
                         className="flex items-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
                       >
                         <Save className="w-4 h-4" />

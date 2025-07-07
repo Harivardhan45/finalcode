@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Code, FileText, Download, Save, X, ChevronDown, Loader2, Zap, Search, Video, TrendingUp, TestTube, Image } from 'lucide-react';
 import { FeatureType } from '../App';
 import { apiService, Space } from '../services/api';
+import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 
 interface CodeAssistantProps {
   onClose: () => void;
@@ -370,10 +371,27 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                         Export
                       </button>
                       <button
-                        onClick={() => alert('Save to Confluence functionality will be implemented in the next iteration')}
-                        className="px-3 py-1 bg-confluence-blue/90 backdrop-blur-sm text-white rounded text-sm hover:bg-confluence-blue transition-colors border border-white/10"
+                        onClick={async () => {
+                          const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                          if (!space || !page) {
+                            alert('Confluence space or page not specified in macro src URL.');
+                            return;
+                          }
+                          try {
+                            await apiService.saveToConfluence({
+                              space_key: space,
+                              page_title: page,
+                              content: processedCode || '',
+                            });
+                            alert('Saved to Confluence!');
+                          } catch (err: any) {
+                            alert('Failed to save to Confluence: ' + (err.message || err));
+                          }
+                        }}
+                        className="flex items-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
                       >
-                        Save
+                        <Save className="w-4 h-4" />
+                        <span>Save to Confluence</span>
                       </button>
                     </div>
                   )}
@@ -421,7 +439,23 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                         <span>Export</span>
                       </button>
                       <button
-                        onClick={() => alert('Save to Confluence functionality will be implemented in the next iteration')}
+                        onClick={async () => {
+                          const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                          if (!space || !page) {
+                            alert('Confluence space or page not specified in macro src URL.');
+                            return;
+                          }
+                          try {
+                            await apiService.saveToConfluence({
+                              space_key: space,
+                              page_title: page,
+                              content: processedCode || '',
+                            });
+                            alert('Saved to Confluence!');
+                          } catch (err: any) {
+                            alert('Failed to save to Confluence: ' + (err.message || err));
+                          }
+                        }}
                         className="flex items-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
                       >
                         <Save className="w-4 h-4" />

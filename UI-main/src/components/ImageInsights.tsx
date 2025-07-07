@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Image, Download, Save, X, ChevronDown, Loader2, MessageSquare, BarChart3, Search, Video, Code, TrendingUp, TestTube, Eye, Zap } from 'lucide-react';
 import { FeatureType } from '../App';
 import { apiService } from '../services/api';
+import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 
 interface ImageInsightsProps {
   onClose: () => void;
@@ -490,7 +491,7 @@ ${JSON.stringify(chartData.data, null, 2)}
   };
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-40 p-4">
+    <div className="fixed inset-0 bg-white flex items-center justify-center z-40 p-4">
       <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-confluence-blue/90 to-confluence-light-blue/90 backdrop-blur-xl p-6 text-white border-b border-white/10">
@@ -807,7 +808,23 @@ ${JSON.stringify(chartData.data, null, 2)}
                               )}
                             </button>
                             <button
-                              onClick={() => alert('Chart saved to Confluence!')}
+                              onClick={async () => {
+                                const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                                if (!space || !page) {
+                                  alert('Confluence space or page not specified in macro src URL.');
+                                  return;
+                                }
+                                try {
+                                  await apiService.saveToConfluence({
+                                    space_key: space,
+                                    page_title: page,
+                                    content: chartData?.title || 'Chart',
+                                  });
+                                  alert('Saved to Confluence!');
+                                } catch (err: any) {
+                                  alert('Failed to save to Confluence: ' + (err.message || err));
+                                }
+                              }}
                               className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
                             >
                               <Save className="w-4 h-4" />

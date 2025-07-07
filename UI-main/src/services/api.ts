@@ -134,6 +134,17 @@ export interface ChartResponse {
   filename: string;
 }
 
+export interface SaveToConfluenceRequest {
+  space_key: string;
+  page_title: string;
+  content: string;
+}
+
+export interface SaveToConfluenceResponse {
+  success: boolean;
+  message?: string;
+}
+
 class ApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -250,6 +261,13 @@ class ApiService {
       const bytes = encoder.encode(result.file);
       return new Blob([bytes], { type: result.mime });
     }
+  }
+
+  async saveToConfluence(request: SaveToConfluenceRequest): Promise<SaveToConfluenceResponse> {
+    return this.makeRequest<SaveToConfluenceResponse>('/save-to-confluence', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
   }
 }
 
