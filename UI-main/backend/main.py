@@ -337,10 +337,10 @@ async def video_summarizer(request: VideoRequest, req: Request):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"ffmpeg audio extraction failed: {e}")
         # Upload audio to AssemblyAI
-        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
-        if not api_key:
-            raise HTTPException(status_code=500, detail="AssemblyAI API key not configured")
-        headers = {"authorization": api_key}
+        assemblyai_api_key = os.getenv('ASSEMBLYAI_API_KEY')
+        if not assemblyai_api_key:
+            raise HTTPException(status_code=500, detail="AssemblyAI API key not configured. Please set ASSEMBLYAI_API_KEY in your environment variables.")
+        headers = {"authorization": assemblyai_api_key}
         with open(audio_path, "rb") as f:
             upload_response = requests.post(
                 "https://api.assemblyai.com/v2/upload",
