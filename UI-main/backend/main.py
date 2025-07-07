@@ -1154,11 +1154,10 @@ async def save_to_confluence(request: SaveToConfluenceRequest):
         if not page:
             raise HTTPException(status_code=404, detail="Page not found")
         page_id = page["id"]
-        # Optionally, get existing content and append/merge
-        # existing_content = page["body"]["storage"]["value"]
-        # updated_body = existing_content + "<hr/>" + request.content
-        updated_body = request.content  # or merge as above if you want to append
-        # Update page (NO version argument)
+        # Append new content to existing content
+        existing_content = page["body"]["storage"]["value"]
+        updated_body = existing_content + "<hr/>" + request.content
+        # Update page
         confluence.update_page(
             page_id=page_id,
             title=request.page_title,
