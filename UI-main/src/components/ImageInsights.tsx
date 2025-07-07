@@ -48,6 +48,7 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [isCreatingChart, setIsCreatingChart] = useState(false);
   const [isChangingChartType, setIsChangingChartType] = useState(false);
   const [isExportingChart, setIsExportingChart] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const chartPreviewRef = useRef<HTMLDivElement>(null);
 
   // Load spaces on component mount
@@ -820,7 +821,8 @@ ${JSON.stringify(chartData.data, null, 2)}
                                     page_title: page,
                                     content: chartData?.title || 'Chart',
                                   });
-                                  window.parent.location.reload();
+                                  setShowToast(true);
+                                  setTimeout(() => setShowToast(false), 3000);
                                 } catch (err: any) {
                                   alert('Failed to save to Confluence: ' + (err.message || err));
                                 }
@@ -993,6 +995,11 @@ ${JSON.stringify(chartData.data, null, 2)}
           </div>
         </div>
       </div>
+      {showToast && (
+        <div style={{position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)', background: '#2684ff', color: 'white', padding: '16px 32px', borderRadius: 8, zIndex: 9999, fontWeight: 600, fontSize: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.15)'}}>
+          Saved to Confluence! Please refresh this Confluence page to see your changes.
+        </div>
+      )}
     </div>
   );
 };

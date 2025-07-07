@@ -34,6 +34,7 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
   const [pages, setPages] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -603,7 +604,8 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                                   page_title: page,
                                   content: video.summary || '',
                                 });
-                                window.parent.location.reload();
+                                setShowToast(true);
+                                setTimeout(() => setShowToast(false), 3000);
                               } catch (err: any) {
                                 alert('Failed to save to Confluence: ' + (err.message || err));
                               }
@@ -665,6 +667,11 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
           )}
         </div>
       </div>
+      {showToast && (
+        <div style={{position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)', background: '#2684ff', color: 'white', padding: '16px 32px', borderRadius: 8, zIndex: 9999, fontWeight: 600, fontSize: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.15)'}}>
+          Saved to Confluence! Please refresh this Confluence page to see your changes.
+        </div>
+      )}
     </div>
   );
 };
