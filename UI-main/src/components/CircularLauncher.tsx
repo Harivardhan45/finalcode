@@ -138,12 +138,6 @@ const CircularLauncher: React.FC<CircularLauncherProps> = ({ onClick }) => {
         style={{
           left: `${position.x}px`,
           top: `${position.y}px`,
-          boxShadow: `
-            0 0 30px rgba(38, 132, 255, 0.6),
-            0 0 60px rgba(38, 132, 255, 0.4),
-            0 8px 32px rgba(0, 0, 0, 0.3),
-            inset 0 1px 0 rgba(255, 255, 255, 0.3)
-          `,
         }}
       >
         <RotateCcw className="w-8 h-8 animate-spin" />
@@ -162,12 +156,6 @@ const CircularLauncher: React.FC<CircularLauncherProps> = ({ onClick }) => {
             onClick={handleClick}
             className="w-20 h-20 bg-gradient-to-br from-confluence-blue to-confluence-light-blue text-white rounded-full shadow-2xl cursor-move flex items-center justify-center font-bold text-sm backdrop-blur-xl border-2 border-white/30 hover:shadow-confluence-blue/50 hover:shadow-2xl transition-all duration-300"
             style={{
-              boxShadow: `
-                0 0 30px rgba(38, 132, 255, 0.4),
-                0 0 60px rgba(38, 132, 255, 0.2),
-                0 8px 32px rgba(0, 0, 0, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3)
-              `,
               background: `
                 linear-gradient(135deg, 
                   rgba(38, 132, 255, 0.9) 0%, 
@@ -187,12 +175,6 @@ const CircularLauncher: React.FC<CircularLauncherProps> = ({ onClick }) => {
           <button
             onClick={toggleApiKeySwap}
             className="absolute -bottom-2 -right-2 w-8 h-8 bg-white/90 backdrop-blur-xl text-confluence-blue rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center border border-white/30"
-            style={{
-              boxShadow: `
-                0 0 15px rgba(38, 132, 255, 0.3),
-                0 4px 16px rgba(0, 0, 0, 0.2)
-              `,
-            }}
           >
             <Settings className="w-4 h-4" />
           </button>
