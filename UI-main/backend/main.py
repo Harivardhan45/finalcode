@@ -1149,12 +1149,14 @@ async def save_to_confluence(request: SaveToConfluenceRequest):
     try:
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, request.space_key)
-        # Get page by title
-        page = confluence.get_page_by_title(space=space_key, title=request.page_title)
+        # Get page by title, expand version
+        page = confluence.get_page_by_title(space=space_key, title=request.page_title, expand='version')
         if not page:
             raise HTTPException(status_code=404, detail="Page not found")
         page_id = page["id"]
         # Get current version
+        if "version" not in page or "number" not in page["version"]:
+            raise HTTPException(status_code=500, detail="Page version info not found. Please check Confluence permissions or API response.")
         current_version = page["version"]["number"]
         # Update page
         confluence.update_page(
