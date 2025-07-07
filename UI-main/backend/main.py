@@ -1149,25 +1149,21 @@ async def save_to_confluence(request: SaveToConfluenceRequest):
     try:
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, request.space_key)
-        # Get page by title, expand version
-        page = confluence.get_page_by_title(space=space_key, title=request.page_title, expand='version')
+        # Get page by title, expand body.storage
+        page = confluence.get_page_by_title(space=space_key, title=request.page_title, expand='body.storage')
         if not page:
             raise HTTPException(status_code=404, detail="Page not found")
         page_id = page["id"]
-        # Get current version
-        if "version" not in page or "number" not in page["version"]:
-            raise HTTPException(status_code=500, detail="Page version info not found. Please check Confluence permissions or API response.")
-        current_version = page["version"]["number"]
-        # Update page
+        # Optionally, get existing content and append/merge
+        # existing_content = page["body"]["storage"]["value"]
+        # updated_body = existing_content + "<hr/>" + request.content
+        updated_body = request.content  # or merge as above if you want to append
+        # Update page (NO version argument)
         confluence.update_page(
             page_id=page_id,
             title=request.page_title,
-            body=request.content,
-            parent_id=None,
-            type='page',
-            representation='storage',
-            minor_edit=False,
-            version=current_version + 1
+            body=updated_body,
+            representation="storage"
         )
         return {"message": "Page updated successfully"}
     except Exception as e:
