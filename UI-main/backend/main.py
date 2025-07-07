@@ -33,6 +33,7 @@ app.add_middleware(
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
         "https://finalui-1l50.onrender.com",  # Add your Render URL
+        "https://frontend-gwj0.onrender.com",  # Add frontend domain
         "*"  # For development, you can allow all origins
     ],
     allow_credentials=True,
@@ -385,6 +386,11 @@ async def video_summarizer(request: VideoRequest, req: Request):
         transcript_text = transcript_data.get("text", "")
         if not transcript_text:
             raise HTTPException(status_code=500, detail="No transcript text returned from AssemblyAI")
+        
+        # Initialize Gemini AI model for text generation
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         
         # Q&A
         if request.question:
