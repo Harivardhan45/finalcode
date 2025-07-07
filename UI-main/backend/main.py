@@ -1194,10 +1194,12 @@ async def test_endpoint():
 def get_actual_api_key_from_identifier(identifier: str) -> str:
     if identifier and identifier.startswith('GENAI_API_KEY_'):
         key = os.getenv(identifier)
+        print(f"Using API key identifier: {identifier}, value: {key}")  # This will appear in Render logs
         if key:
             return key
-    # fallback
-    return os.getenv('GENAI_API_KEY_1')
+    fallback = os.getenv('GENAI_API_KEY_1')
+    print(f"Falling back to GENAI_API_KEY_1, value: {fallback}")
+    return fallback
 
 if __name__ == "__main__":
     import uvicorn
