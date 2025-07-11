@@ -80,17 +80,22 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
       { id: 2, title: 'Executing', status: 'pending' },
     ]);
     setOutputTabs([]);
-    setActiveTab('Final Answer');
+    setCurrentStep(0);
+    setActiveTab('final-answer');
     let toolsToUse: string[] = [];
     let orchestrationReasoning = '';
     try {
       // Step 1: Use Gemini to analyze the goal and get tools
       setPlanSteps((steps) => steps.map((s) => s.id === 1 ? { ...s, status: 'running' } : s));
-      const analysis = await analyzeGoal(goal, pages);
+      setCurrentStep(0);
+      const analysis = await analyzeGoal(goal, selectedPages); // Only pass user-selected pages
       toolsToUse = analysis.tools || [];
-      const selectedPagesFromAI = analysis.pages || [];
+      let selectedPagesFromAI = analysis.pages || [];
+      // Only allow pages that the user selected
+      selectedPagesFromAI = selectedPagesFromAI.filter((p: string) => selectedPages.includes(p));
       orchestrationReasoning = analysis.reasoning || '';
       setPlanSteps((steps) => steps.map((s) => s.id === 1 ? { ...s, status: 'completed' } : s));
+      setCurrentStep(1);
       // Step 2: Call the selected tools on the selected pages from AI
       setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'running' } : s));
       const toolResults: Record<string, any> = {};
@@ -101,7 +106,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
           page_titles: selectedPagesFromAI,
           query: goal,
         });
-        toolResults['ai_powered_search'] = res;
+        toolResults['AI Powered Search'] = res;
       }
       // Impact Analyzer (requires at least 2 pages)
       if (toolsToUse.includes('impact_analyzer') && selectedPagesFromAI.length >= 2) {
@@ -111,7 +116,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
           new_page_title: selectedPagesFromAI[1],
           question: goal,
         });
-        toolResults['impact_analyzer'] = res;
+        toolResults['Impact Analyzer'] = res;
       }
       // Code Assistant
       if (toolsToUse.includes('code_assistant') && selectedPagesFromAI.length > 0) {
@@ -120,7 +125,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
           page_title: selectedPagesFromAI[0],
           instruction: goal,
         });
-        toolResults['code_assistant'] = res;
+        toolResults['Code Assistant'] = res;
       }
       // Video Summarizer
       if (toolsToUse.includes('video_summarizer') && selectedPagesFromAI.length > 0) {
@@ -128,7 +133,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
           space_key: selectedSpace,
           page_title: selectedPagesFromAI[0],
         });
-        toolResults['video_summarizer'] = res;
+        toolResults['Video Summarizer'] = res;
       }
       // Test Support
       if (toolsToUse.includes('test_support') && selectedPagesFromAI.length > 0) {
@@ -136,7 +141,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
           space_key: selectedSpace,
           code_page_title: selectedPagesFromAI[0],
         });
-        toolResults['test_support'] = res;
+        toolResults['Test Support'] = res;
       }
       // Image Insights
       if (toolsToUse.includes('image_insights') && selectedPagesFromAI.length > 0) {
@@ -147,7 +152,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
             page_title: selectedPagesFromAI[0],
             image_url: imgUrl,
           })));
-          toolResults['image_insights'] = summaries;
+          toolResults['Image Insights'] = summaries;
         }
       }
       // Chart Builder
@@ -162,11 +167,20 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
             filename: 'chart',
             format: 'png',
           })));
-          toolResults['chart_builder'] = charts;
+          toolResults['Chart Builder'] = charts;
         }
       }
       setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'completed' } : s));
+      setCurrentStep(2);
       // Prepare output tabs
+      const usedToolsContent = Object.entries(toolResults).map(([tool, result]) => {
+        if (typeof result === 'string') return `## ${tool}\n${result}`;
+        if (result?.response) return `## ${tool}\n${result.response}`;
+        if (result?.summary) return `## ${tool}\n${result.summary}`;
+        if (result?.impact_analysis) return `## ${tool}\n${result.impact_analysis}`;
+        if (result?.test_strategy) return `## ${tool}\n${result.test_strategy}`;
+        return `## ${tool}\n${JSON.stringify(result, null, 2)}`;
+      }).join('\n\n');
       const tabs = [
         {
           id: 'final-answer',
@@ -186,14 +200,15 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
           icon: FileText,
           content: selectedPagesFromAI.join(', '),
         },
-        ...Object.entries(toolResults).map(([tool, result], idx) => ({
-          id: `tool-${tool}-${idx}`,
-          label: tool.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+        {
+          id: 'used-tools',
+          label: 'Used Tools',
           icon: Zap,
-          content: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
-        })),
+          content: usedToolsContent,
+        },
       ];
       setOutputTabs(tabs);
+      setActiveTab('final-answer');
     } catch (err: any) {
       setError(err.message || 'An error occurred during orchestration.');
     } finally {
