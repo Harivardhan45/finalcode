@@ -1239,6 +1239,11 @@ async def analyze_goal(request: AnalyzeGoalRequest, req: Request):
                 raw = raw[:-3]
             result = json.loads(raw)
             tools = result.get('tools', [])
+            # Patch: handle dict for tools
+            if isinstance(tools, dict):
+                tools = [k for k, v in tools.items() if v is True or v == 1 or (isinstance(v, str) and v.lower() == 'true')]
+            elif not isinstance(tools, list):
+                raise ValueError(f"Gemini returned tools in an unexpected format: {tools}")
             pages = result.get('pages', [])
             reasoning = result.get('reasoning', '')
         except Exception as e:
