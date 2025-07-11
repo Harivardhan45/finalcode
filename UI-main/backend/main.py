@@ -109,6 +109,15 @@ class SaveToConfluenceRequest(BaseModel):
     page_title: str
     content: str
 
+class AnalyzeGoalRequest(BaseModel):
+    goal: str
+    available_pages: list[str]
+
+class AnalyzeGoalResponse(BaseModel):
+    tools: list[str]
+    pages: list[str]
+    reasoning: str
+
 # Helper functions
 def remove_emojis(text):
     emoji_pattern = re.compile(
@@ -1197,6 +1206,37 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
             representation="storage"
         )
         return {"message": "Page updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze-goal", response_model=AnalyzeGoalResponse)
+async def analyze_goal(request: AnalyzeGoalRequest, req: Request):
+    """Analyze a user goal and return which tools and pages to use, using Gemini."""
+    try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
+        prompt = (
+            "You are an expert AI agent orchestrator. "
+            "Given the following user goal and a list of available Confluence page titles, decide which of these tools should be used to accomplish it: "
+            "AI Powered Search, Impact Analyzer, Code Assistant, Video Summarizer, Test Support Tool, Image Insights, Chart Builder. "
+            "Also, select the most relevant page titles from the provided list that should be used to achieve the goal. "
+            "Return a JSON object with three fields: 'tools' (a list of tool names to use, using these exact keys: 'ai_powered_search', 'impact_analyzer', 'code_assistant', 'video_summarizer', 'test_support', 'image_insights', 'chart_builder'), 'pages' (a list of relevant page titles from the provided list), and 'reasoning' (a short explanation of your choices). "
+            f"Available pages: {request.available_pages}\n"
+            f"User goal: '{request.goal}'"
+        )
+        response = ai_model.generate_content(prompt)
+        # Try to parse the response as JSON
+        try:
+            result = json.loads(response.text)
+            tools = result.get('tools', [])
+            pages = result.get('pages', [])
+            reasoning = result.get('reasoning', '')
+        except Exception:
+            tools = []
+            pages = []
+            reasoning = response.text.strip()
+        return {"tools": tools, "pages": pages, "reasoning": reasoning}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

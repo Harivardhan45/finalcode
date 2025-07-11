@@ -283,3 +283,16 @@ class ApiService {
 }
 
 export const apiService = new ApiService(); 
+
+export async function analyzeGoal(goal: string, availablePages: string[]) {
+  const res = await fetch(`${API_BASE_URL}/analyze-goal`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': localStorage.getItem('selectedApiKeyId') || '',
+    },
+    body: JSON.stringify({ goal, available_pages: availablePages }),
+  });
+  if (!res.ok) throw new Error('Failed to analyze goal');
+  return res.json();
+} 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, X, Send, Download, RotateCcw, FileText, Brain, CheckCircle, Loader2, MessageSquare, Plus } from 'lucide-react';
 import type { AppMode } from '../App';
-import { apiService } from '../services/api';
+import { apiService, analyzeGoal } from '../services/api';
 
 interface AgentModeProps {
   onClose: () => void;
@@ -76,58 +76,128 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
     setIsPlanning(true);
     setError('');
     setPlanSteps([
-      { id: 1, title: 'Retrieving context', status: 'pending' },
-      { id: 2, title: 'Generating answer', status: 'pending' },
+      { id: 1, title: 'Analyzing Goal', status: 'pending' },
+      { id: 2, title: 'Executing', status: 'pending' },
     ]);
+    setOutputTabs([]);
+    setActiveTab('Final Answer');
+    let toolsToUse: string[] = [];
+    let orchestrationReasoning = '';
     try {
-      // Step 1: Retrieve context
-      setCurrentStep(0);
-      setPlanSteps(prev => prev.map(step => step.id === 1 ? { ...step, status: 'running' } : step));
-      const searchResult = await apiService.search({
-        space_key: selectedSpace,
-        page_titles: selectedPages,
-        query: goal,
-      });
-      setPlanSteps(prev => prev.map(step => step.id === 1 ? { ...step, status: 'completed', details: `Analyzed ${searchResult.pages_analyzed} pages.` } : step));
-      // Step 2: Generate answer (use search response for now)
-      setCurrentStep(1);
-      setPlanSteps(prev => prev.map(step => step.id === 2 ? { ...step, status: 'running' } : step));
-      // Optionally, orchestrate more API calls here based on goal (e.g., codeAssistant, impactAnalyzer)
-      // For now, just use searchResult.response
-      setOutputTabs([
+      // Step 1: Use Gemini to analyze the goal and get tools
+      setPlanSteps((steps) => steps.map((s) => s.id === 1 ? { ...s, status: 'running' } : s));
+      const analysis = await analyzeGoal(goal, pages);
+      toolsToUse = analysis.tools || [];
+      const selectedPagesFromAI = analysis.pages || [];
+      orchestrationReasoning = analysis.reasoning || '';
+      setPlanSteps((steps) => steps.map((s) => s.id === 1 ? { ...s, status: 'completed' } : s));
+      // Step 2: Call the selected tools on the selected pages from AI
+      setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'running' } : s));
+      const toolResults: Record<string, any> = {};
+      // AI Powered Search
+      if (toolsToUse.includes('ai_powered_search')) {
+        const res = await apiService.search({
+          space_key: selectedSpace,
+          page_titles: selectedPagesFromAI,
+          query: goal,
+        });
+        toolResults['ai_powered_search'] = res;
+      }
+      // Impact Analyzer (requires at least 2 pages)
+      if (toolsToUse.includes('impact_analyzer') && selectedPagesFromAI.length >= 2) {
+        const res = await apiService.impactAnalyzer({
+          space_key: selectedSpace,
+          old_page_title: selectedPagesFromAI[0],
+          new_page_title: selectedPagesFromAI[1],
+          question: goal,
+        });
+        toolResults['impact_analyzer'] = res;
+      }
+      // Code Assistant
+      if (toolsToUse.includes('code_assistant') && selectedPagesFromAI.length > 0) {
+        const res = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPagesFromAI[0],
+          instruction: goal,
+        });
+        toolResults['code_assistant'] = res;
+      }
+      // Video Summarizer
+      if (toolsToUse.includes('video_summarizer') && selectedPagesFromAI.length > 0) {
+        const res = await apiService.videoSummarizer({
+          space_key: selectedSpace,
+          page_title: selectedPagesFromAI[0],
+        });
+        toolResults['video_summarizer'] = res;
+      }
+      // Test Support
+      if (toolsToUse.includes('test_support') && selectedPagesFromAI.length > 0) {
+        const res = await apiService.testSupport({
+          space_key: selectedSpace,
+          code_page_title: selectedPagesFromAI[0],
+        });
+        toolResults['test_support'] = res;
+      }
+      // Image Insights
+      if (toolsToUse.includes('image_insights') && selectedPagesFromAI.length > 0) {
+        const images = await apiService.getImages(selectedSpace, selectedPagesFromAI[0]);
+        if (images && images.images && images.images.length > 0) {
+          const summaries = await Promise.all(images.images.map((imgUrl: string) => apiService.imageSummary({
+            space_key: selectedSpace,
+            page_title: selectedPagesFromAI[0],
+            image_url: imgUrl,
+          })));
+          toolResults['image_insights'] = summaries;
+        }
+      }
+      // Chart Builder
+      if (toolsToUse.includes('chart_builder') && selectedPagesFromAI.length > 0) {
+        const images = await apiService.getImages(selectedSpace, selectedPagesFromAI[0]);
+        if (images && images.images && images.images.length > 0) {
+          const charts = await Promise.all(images.images.map((imgUrl: string) => apiService.createChart({
+            space_key: selectedSpace,
+            page_title: selectedPagesFromAI[0],
+            image_url: imgUrl,
+            chart_type: 'bar',
+            filename: 'chart',
+            format: 'png',
+          })));
+          toolResults['chart_builder'] = charts;
+        }
+      }
+      setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'completed' } : s));
+      // Prepare output tabs
+      const tabs = [
         {
-          id: 'answer',
+          id: 'final-answer',
           label: 'Final Answer',
           icon: FileText,
-          content: searchResult.response,
+          content: Object.values(toolResults).map((r: any) => r?.response || r?.summary || r?.impact_analysis || r?.test_strategy || '').join('\n\n'),
         },
         {
           id: 'reasoning',
-          label: 'Reasoning Steps',
+          label: 'Reasoning',
           icon: Brain,
-          content: `Pages analyzed: ${searchResult.page_titles.join(', ')}`,
+          content: orchestrationReasoning,
         },
         {
-          id: 'tools',
-          label: 'Used Tools',
+          id: 'selected-pages',
+          label: 'Selected Pages',
+          icon: FileText,
+          content: selectedPagesFromAI.join(', '),
+        },
+        ...Object.entries(toolResults).map(([tool, result], idx) => ({
+          id: `tool-${tool}-${idx}`,
+          label: tool.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
           icon: Zap,
-          content: 'AI Powered Search',
-        },
-        {
-          id: 'qa',
-          label: 'Follow-Up Q&A',
-          icon: MessageSquare,
-          content: 'Ask follow-up questions to refine or expand on this analysis.'
-        }
-      ]);
-      setPlanSteps(prev => prev.map(step => step.id === 2 ? { ...step, status: 'completed', details: 'Answer generated.' } : step));
+          content: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+        })),
+      ];
+      setOutputTabs(tabs);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during orchestration.');
+    } finally {
       setIsPlanning(false);
-      setIsExecuting(false);
-      setShowFollowUp(true);
-    } catch (err) {
-      setError('Failed to generate agent response.');
-      setIsPlanning(false);
-      setIsExecuting(false);
     }
   };
 
