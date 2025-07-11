@@ -1222,20 +1222,32 @@ async def analyze_goal(request: AnalyzeGoalRequest, req: Request):
             "AI Powered Search, Impact Analyzer, Code Assistant, Video Summarizer, Test Support Tool, Image Insights, Chart Builder. "
             "Also, select the most relevant page titles from the provided list that should be used to achieve the goal. "
             "Return a JSON object with three fields: 'tools' (a list of tool names to use, using these exact keys: 'ai_powered_search', 'impact_analyzer', 'code_assistant', 'video_summarizer', 'test_support', 'image_insights', 'chart_builder'), 'pages' (a list of relevant page titles from the provided list), and 'reasoning' (a short explanation of your choices). "
+            "Return ONLY valid JSON, no extra text or explanation. Output your answer as a JSON object in a single code block. "
             f"Available pages: {request.available_pages}\n"
             f"User goal: '{request.goal}'"
         )
         response = ai_model.generate_content(prompt)
         # Try to parse the response as JSON
         try:
-            result = json.loads(response.text)
+            # Remove code block markers if present
+            raw = response.text.strip()
+            if raw.startswith('```json'):
+                raw = raw[7:]
+            if raw.startswith('```'):
+                raw = raw[3:]
+            if raw.endswith('```'):
+                raw = raw[:-3]
+            result = json.loads(raw)
             tools = result.get('tools', [])
             pages = result.get('pages', [])
             reasoning = result.get('reasoning', '')
-        except Exception:
+        except Exception as e:
+            print(f"[analyze-goal] Failed to parse Gemini response as JSON. Raw response:\n{response.text}")
             tools = []
             pages = []
             reasoning = response.text.strip()
+        if not tools or not pages:
+            raise HTTPException(status_code=400, detail=f"Gemini did not return valid tools/pages. Raw output:\n{response.text}")
         return {"tools": tools, "pages": pages, "reasoning": reasoning}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
