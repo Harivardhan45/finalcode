@@ -171,22 +171,33 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
         }
       }
       setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'completed' } : s));
-      setCurrentStep(2);
+      setCurrentStep(planSteps.length - 1); // Ensure progress is 100% when done
       // Prepare output tabs
+      const getRelevantOutput = (result: any) => {
+        if (!result) return '';
+        if (typeof result === 'string') return result;
+        if (result.summary) return result.summary;
+        if (result.impact_analysis) return result.impact_analysis;
+        if (result.modified_code) return result.modified_code;
+        if (result.converted_code) return result.converted_code;
+        if (result.original_code) return result.original_code;
+        if (result.response) return result.response;
+        if (result.test_strategy) return result.test_strategy;
+        if (result.chart_data) return '[Chart Image]';
+        if (Array.isArray(result) && result.length > 0) return getRelevantOutput(result[0]);
+        return '';
+      };
       const usedToolsContent = Object.entries(toolResults).map(([tool, result]) => {
-        if (typeof result === 'string') return `## ${tool}\n${result}`;
-        if (result?.response) return `## ${tool}\n${result.response}`;
-        if (result?.summary) return `## ${tool}\n${result.summary}`;
-        if (result?.impact_analysis) return `## ${tool}\n${result.impact_analysis}`;
-        if (result?.test_strategy) return `## ${tool}\n${result.test_strategy}`;
-        return `## ${tool}\n${JSON.stringify(result, null, 2)}`;
+        const output = getRelevantOutput(result);
+        return `## ${tool}\n${output}`;
       }).join('\n\n');
+      const finalAnswer = Object.values(toolResults).map(getRelevantOutput).filter(Boolean).join('\n\n');
       const tabs = [
         {
           id: 'final-answer',
           label: 'Final Answer',
           icon: FileText,
-          content: Object.values(toolResults).map((r: any) => r?.response || r?.summary || r?.impact_analysis || r?.test_strategy || '').join('\n\n'),
+          content: finalAnswer,
         },
         {
           id: 'reasoning',
