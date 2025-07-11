@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, X, Send, Download, RotateCcw, FileText, Brain, CheckCircle, Loader2, MessageSquare, Plus } from 'lucide-react';
 import type { AppMode } from '../App';
+import { apiService } from '../services/api';
 
 interface AgentModeProps {
   onClose: () => void;
@@ -32,24 +33,102 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect }) => {
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [outputTabs, setOutputTabs] = useState<OutputTab[]>([]);
 
+  // Add new state for space/page selection and API results
+  const [spaces, setSpaces] = useState<{ name: string; key: string }[]>([]);
+  const [pages, setPages] = useState<string[]>([]);
+  const [selectedSpace, setSelectedSpace] = useState('');
+  const [selectedPages, setSelectedPages] = useState<string[]>([]);
+  const [error, setError] = useState('');
+
+  // Load spaces on mount
+  useEffect(() => {
+    const loadSpaces = async () => {
+      try {
+        const result = await apiService.getSpaces();
+        setSpaces(result.spaces);
+      } catch (err) {
+        setError('Failed to load spaces.');
+      }
+    };
+    loadSpaces();
+  }, []);
+
+  // Load pages when space is selected
+  useEffect(() => {
+    if (selectedSpace) {
+      const loadPages = async () => {
+        try {
+          const result = await apiService.getPages(selectedSpace);
+          setPages(result.pages);
+        } catch (err) {
+          setError('Failed to load pages.');
+        }
+      };
+      loadPages();
+    }
+  }, [selectedSpace]);
+
   const handleGoalSubmit = async () => {
-    if (!goal.trim()) return;
-    
+    if (!goal.trim() || !selectedSpace || selectedPages.length === 0) {
+      setError('Please enter a goal, select a space, and at least one page.');
+      return;
+    }
     setIsPlanning(true);
-    
-    // Simulate planning phase
-    setTimeout(() => {
-      const steps: PlanStep[] = [
-        { id: 1, title: 'Retrieve context', status: 'pending' },
-        { id: 2, title: 'Summarize', status: 'pending' },
-        { id: 3, title: 'Recommend changes', status: 'pending' }
-      ];
-      setPlanSteps(steps);
+    setError('');
+    setPlanSteps([
+      { id: 1, title: 'Retrieving context', status: 'pending' },
+      { id: 2, title: 'Generating answer', status: 'pending' },
+    ]);
+    try {
+      // Step 1: Retrieve context
+      setCurrentStep(0);
+      setPlanSteps(prev => prev.map(step => step.id === 1 ? { ...step, status: 'running' } : step));
+      const searchResult = await apiService.search({
+        space_key: selectedSpace,
+        page_titles: selectedPages,
+        query: goal,
+      });
+      setPlanSteps(prev => prev.map(step => step.id === 1 ? { ...step, status: 'completed', details: `Analyzed ${searchResult.pages_analyzed} pages.` } : step));
+      // Step 2: Generate answer (use search response for now)
+      setCurrentStep(1);
+      setPlanSteps(prev => prev.map(step => step.id === 2 ? { ...step, status: 'running' } : step));
+      // Optionally, orchestrate more API calls here based on goal (e.g., codeAssistant, impactAnalyzer)
+      // For now, just use searchResult.response
+      setOutputTabs([
+        {
+          id: 'answer',
+          label: 'Final Answer',
+          icon: FileText,
+          content: searchResult.response,
+        },
+        {
+          id: 'reasoning',
+          label: 'Reasoning Steps',
+          icon: Brain,
+          content: `Pages analyzed: ${searchResult.page_titles.join(', ')}`,
+        },
+        {
+          id: 'tools',
+          label: 'Used Tools',
+          icon: Zap,
+          content: 'AI Powered Search',
+        },
+        {
+          id: 'qa',
+          label: 'Follow-Up Q&A',
+          icon: MessageSquare,
+          content: 'Ask follow-up questions to refine or expand on this analysis.'
+        }
+      ]);
+      setPlanSteps(prev => prev.map(step => step.id === 2 ? { ...step, status: 'completed', details: 'Answer generated.' } : step));
       setIsPlanning(false);
-      
-      // Start execution
-      executeSteps(steps);
-    }, 2000);
+      setIsExecuting(false);
+      setShowFollowUp(true);
+    } catch (err) {
+      setError('Failed to generate agent response.');
+      setIsPlanning(false);
+      setIsExecuting(false);
+    }
   };
 
   const executeSteps = async (steps: PlanStep[]) => {
@@ -192,18 +271,23 @@ I've analyzed the relevant Confluence content and identified key areas for impro
 All tools worked together seamlessly to provide a comprehensive analysis of your goal.`;
   };
 
-  const handleFollowUp = () => {
-    if (!followUpQuestion.trim()) return;
-    
-    // Add follow-up to Q&A tab
-    const qaContent = outputTabs.find(tab => tab.id === 'qa')?.content || '';
-    const updatedQA = `${qaContent}\n\n**Q: ${followUpQuestion}**\n\nA: Based on the previous analysis, here's additional insight: ${followUpQuestion.toLowerCase().includes('risk') ? 'The main risks include implementation complexity and user adoption. Mitigation strategies should focus on phased rollout and comprehensive training.' : 'This aspect requires careful consideration of your specific context and organizational needs. I recommend reviewing the detailed steps in the Reasoning tab for more context.'}`;
-    
-    setOutputTabs(prev => prev.map(tab => 
-      tab.id === 'qa' ? { ...tab, content: updatedQA } : tab
-    ));
-    
-    setFollowUpQuestion('');
+  const handleFollowUp = async () => {
+    if (!followUpQuestion.trim() || !selectedSpace || selectedPages.length === 0) return;
+    try {
+      const searchResult = await apiService.search({
+        space_key: selectedSpace,
+        page_titles: selectedPages,
+        query: followUpQuestion,
+      });
+      const qaContent = outputTabs.find(tab => tab.id === 'qa')?.content || '';
+      const updatedQA = `${qaContent}\n\n**Q: ${followUpQuestion}**\n\nA: ${searchResult.response}`;
+      setOutputTabs(prev => prev.map(tab =>
+        tab.id === 'qa' ? { ...tab, content: updatedQA } : tab
+      ));
+      setFollowUpQuestion('');
+    } catch (err) {
+      setError('Failed to get follow-up answer.');
+    }
   };
 
   const exportPlan = () => {
@@ -273,6 +357,53 @@ ${outputTabs.find(tab => tab.id === 'tools')?.content || ''}
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          {/* Space and Page Selectors */}
+          {!planSteps.length && !isPlanning && (
+            <div className="max-w-4xl mx-auto mb-6">
+              <div className="bg-white/60 backdrop-blur-xl rounded-xl p-6 border border-white/20 shadow-lg text-center">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Select Space and Pages</h3>
+                <div className="flex flex-col md:flex-row md:space-x-4 items-center justify-center mb-4">
+                  <div className="mb-4 md:mb-0 w-full md:w-1/2">
+                    <label className="block text-gray-700 mb-2 text-left">Space</label>
+                    <select
+                      className="w-full p-3 border border-orange-200/50 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white/70 backdrop-blur-sm"
+                      value={selectedSpace}
+                      onChange={e => {
+                        setSelectedSpace(e.target.value);
+                        setSelectedPages([]);
+                      }}
+                    >
+                      <option value="">Select a space...</option>
+                      {spaces.map(space => (
+                        <option key={space.key} value={space.key}>{space.name} ({space.key})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-full md:w-1/2">
+                    <label className="block text-gray-700 mb-2 text-left">Pages</label>
+                    <select
+                      className="w-full p-3 border border-orange-200/50 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white/70 backdrop-blur-sm"
+                      multiple
+                      size={Math.min(6, pages.length)}
+                      value={selectedPages}
+                      onChange={e => {
+                        const options = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                        setSelectedPages(options);
+                      }}
+                      disabled={!selectedSpace}
+                    >
+                      {pages.map(page => (
+                        <option key={page} value={page}>{page}</option>
+                      ))}
+                    </select>
+                    <div className="text-xs text-gray-500 mt-1 text-left">Hold Ctrl (Windows) or Cmd (Mac) to select multiple pages.</div>
+                  </div>
+                </div>
+                {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+              </div>
+            </div>
+          )}
+
           {/* Goal Input Section */}
           {!planSteps.length && !isPlanning && (
             <div className="max-w-4xl mx-auto">
@@ -288,12 +419,13 @@ ${outputTabs.find(tab => tab.id === 'tools')?.content || ''}
                   />
                   <button
                     onClick={handleGoalSubmit}
-                    disabled={!goal.trim()}
+                    disabled={!goal.trim() || !selectedSpace || selectedPages.length === 0}
                     className="absolute bottom-4 right-4 bg-orange-500/90 backdrop-blur-sm text-white p-3 rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors border border-white/10"
                   >
                     <Send className="w-5 h-5" />
                   </button>
                 </div>
+                {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
               </div>
             </div>
           )}
@@ -411,7 +543,7 @@ ${outputTabs.find(tab => tab.id === 'tools')?.content || ''}
                                     />
                                     <button
                                       onClick={handleFollowUp}
-                                      disabled={!followUpQuestion.trim()}
+                                      disabled={!followUpQuestion.trim() || !selectedSpace || selectedPages.length === 0}
                                       className="px-4 py-3 bg-orange-500/90 backdrop-blur-sm text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 transition-colors flex items-center border border-white/10"
                                     >
                                       <Plus className="w-4 h-4" />
