@@ -22,7 +22,11 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({ onModeSelect, onClose }) =>
     <div className="fixed inset-0 bg-white backdrop-blur-sm flex items-center justify-center z-40 p-4 animate-fadeIn">
       <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-slideInUp">
         {/* Header */}
-        <div className="bg-gradient-to-r from-confluence-blue/90 to-confluence-light-blue/90 backdrop-blur-xl p-6 text-white border-b border-white/10">
+        <div className={`backdrop-blur-xl p-6 text-white border-b ${
+          selectedMode === 'agent'
+            ? 'bg-gradient-to-r from-orange-500/90 to-orange-600/90 border-orange-200'
+            : 'bg-gradient-to-r from-confluence-blue/90 to-confluence-light-blue/90 border-white/10'
+        }`}>
           <div className="flex items-center justify-between">
             <div className="text-center flex-1">
               <h2 className="text-2xl font-bold">Choose Your Mode</h2>
@@ -81,7 +85,7 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({ onModeSelect, onClose }) =>
               <div className="bg-gradient-to-br from-orange-50/80 to-orange-100/80 backdrop-blur-sm rounded-xl p-6 border border-orange-200/50">
                 <div className="flex items-center space-x-3 mb-3">
                   <div className="w-10 h-10 bg-orange-500/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-orange-600" />
+                    <Zap className="w-5 h-5 text-amber-500 fill-current" />
                   </div>
                   <h3 className="text-lg font-bold text-orange-800">Agent Mode</h3>
                 </div>
