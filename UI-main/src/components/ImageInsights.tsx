@@ -3,6 +3,7 @@ import { Image, Download, Save, X, ChevronDown, Loader2, MessageSquare, BarChart
 import { FeatureType } from '../App';
 import { apiService } from '../services/api';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
+import CustomScrollbar from './CustomScrollbar';
 
 interface ImageInsightsProps {
   onClose: () => void;
@@ -509,25 +510,29 @@ ${JSON.stringify(chartData.data, null, 2)}
             </button>
           </div>
           {/* Feature Navigation */}
-          <div className="mt-6 flex gap-2">
-            {features.map((feature) => {
-              const Icon = feature.icon;
-              const isActive = feature.id === 'image';
-              return (
-                <button
-                  key={feature.id}
-                  onClick={() => onFeatureSelect(feature.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg backdrop-blur-sm border transition-all duration-200 whitespace-nowrap ${
-                    isActive
-                      ? 'bg-white/90 text-confluence-blue shadow-lg border-white/30'
-                      : 'bg-white/10 text-white hover:bg-white/20 border-white/10'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-sm font-medium">{feature.label}</span>
-                </button>
-              );
-            })}
+          <div className="mt-6 relative">
+            <CustomScrollbar className="pb-2">
+              <div className="flex gap-2">
+                {features.map((feature) => {
+                  const Icon = feature.icon;
+                  const isActive = feature.id === 'image';
+                  return (
+                    <button
+                      key={feature.id}
+                      onClick={() => onFeatureSelect(feature.id)}
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg backdrop-blur-sm border transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
+                        isActive
+                          ? 'bg-white/90 text-confluence-blue shadow-lg border-white/30'
+                          : 'bg-white/10 text-white hover:bg-white/20 border-white/10'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span className="text-sm font-medium">{feature.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </CustomScrollbar>
           </div>
         </div>
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
