@@ -431,7 +431,7 @@ ${outputTabs.find(tab => tab.id === 'used-tools')?.content || ''}
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-40 p-4">
-      <div className="bg-white/80 backdrop-blur-xl border-2 border-orange-500 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white/80 backdrop-blur-xl border-4 border-orange-500 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500/90 to-orange-600/90 backdrop-blur-xl p-6 text-white border-b border-orange-300/20">
           <div className="flex items-center justify-between">
