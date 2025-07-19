@@ -430,7 +430,7 @@ ${outputTabs.find(tab => tab.id === 'used-tools')?.content || ''}
     (currentStep + 1 >= planSteps.length ? 100 : Math.round(((currentStep + 1) / planSteps.length) * 100));
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-40 p-4">
+    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-40 p-4">
       <div className="bg-white/80 backdrop-blur-xl border-2 border-orange-500 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500/90 to-orange-600/90 backdrop-blur-xl p-6 text-white border-b border-orange-300/20">
