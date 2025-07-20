@@ -1,12 +1,21 @@
 import os
 import requests
+import re
 
 CONFLUENCE_URL = "https://workwizards.atlassian.net/wiki"
 PAGE_ID = "55574568"
 USERNAME = os.getenv("CONFLUENCE_USER_EMAIL")
 API_TOKEN = os.getenv("CONFLUENCE_API_KEY")
 
+def markdown_to_confluence_storage(text):
+    # Convert markdown bold (**text**) to <strong>text</strong>
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\\1</strong>", text)
+    # Optionally, handle other markdown (headers, italics, etc.) here
+    return text
+
 def update_confluence_page(hlsd_content):
+    # Convert markdown to Confluence storage format
+    hlsd_content = markdown_to_confluence_storage(hlsd_content)
     # Get current page version
     url = f"{CONFLUENCE_URL}/rest/api/content/{PAGE_ID}?expand=body.storage,version"
     response = requests.get(url, auth=(USERNAME, API_TOKEN))
