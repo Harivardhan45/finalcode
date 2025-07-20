@@ -10,7 +10,7 @@ def generate_hlsd(file_path):
         "Use clear sections and bullet points where appropriate.\n\n"
         f"{code}"
     )
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
     response = model.generate_content(prompt)
     return response.text
 
