@@ -286,11 +286,6 @@ Answer:
 async def root():
     return {"message": "Confluence AI Assistant API", "status": "running"}
 
-@app.get("/ping")
-async def ping():
-    """Simple ping endpoint for health check"""
-    return {"pong": True}
-
 @app.get("/spaces")
 async def get_spaces():
     """Get all available Confluence spaces"""
