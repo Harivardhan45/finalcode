@@ -20,7 +20,6 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 import difflib
 import base64
-from .test import hybrid_rag
 
 # Load environment variables
 load_dotenv()
@@ -221,6 +220,67 @@ def auto_detect_space(confluence, space_key: Optional[str] = None) -> str:
         return spaces[0]["key"]
     raise HTTPException(status_code=400, detail="Multiple spaces found. Please specify a space_key.")
 
+def search_web_google(query, num_results=5):
+    import os
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
+    url = "https://www.googleapis.com/customsearch/v1"
+    params = {
+        "key": GOOGLE_API_KEY,
+        "cx": SEARCH_ENGINE_ID,
+        "q": query,
+        "num": num_results
+    }
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        results = response.json().get("items", [])
+        if not results:
+            return ""
+        snippets = []
+        for item in results:
+            title = item.get("title", "")
+            snippet = item.get("snippet", "")
+            link = item.get("link", "")
+            snippets.append(f"{title}\n{snippet}\n{link}")
+        return "\n\n".join(snippets)
+    except Exception as e:
+        return f"❌ Google Search error: {e}"
+
+def hybrid_rag(prompt, api_key=None):
+    import google.generativeai as genai
+    if api_key:
+        genai.configure(api_key=api_key)
+    else:
+        # fallback to default
+        from os import getenv
+        genai.configure(api_key=getenv('GENAI_API_KEY_1'))
+    model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
+    web_context = search_web_google(prompt)
+    if not web_context.strip():
+        response = model.generate_content(prompt)
+        return response.parts[0].text.strip() if response.parts else "⚠️ No answer from Gemini."
+    final_prompt = f"""
+Use the following web search results to answer the question accurately.
+If relevant, include links as citations.
+
+Web Results:
+{web_context}
+
+Question: {prompt}
+
+Answer:
+"""
+    try:
+        response = model.generate_content(final_prompt)
+        text = response.parts[0].text.strip() if response.parts else "⚠️ No answer from Gemini."
+        if "do not contain" in text.lower():
+            response = model.generate_content(prompt)
+            return response.parts[0].text.strip() if response.parts else "⚠️ No fallback answer from Gemini."
+        return text
+    except Exception as e:
+        return f"❌ Gemini error: {e}"
+
 # API Endpoints
 @app.get("/")
 async def root():
@@ -301,7 +361,7 @@ async def ai_powered_search(request: SearchRequest, req: Request):
             ai_response = result.get('answer', '').strip()
             supported = result.get('supported_by_context', False)
             if not supported:
-                ai_response = hybrid_rag(request.query)
+                ai_response = hybrid_rag(request.query, api_key=api_key)
         except Exception:
             ai_response = response.text.strip()
             supported = None
@@ -313,11 +373,11 @@ async def ai_powered_search(request: SearchRequest, req: Request):
                     ai_response = result.get('answer', '').strip()
                     supported = result.get('supported_by_context', False)
                     if not supported:
-                        ai_response = hybrid_rag(request.query)
+                        ai_response = hybrid_rag(request.query, api_key=api_key)
             except Exception:
                 # Regex fallback for supported_by_context: false
                 if re.search(r"supported_by_context['\"]?\s*[:=]\s*false", response.text.strip(), re.IGNORECASE):
-                    ai_response = hybrid_rag(request.query)
+                    ai_response = hybrid_rag(request.query, api_key=api_key)
                 else:
                     # Heuristic: If the answer is not generic and overlaps with context, accept it
                     def is_generic_answer(answer, context):
@@ -352,7 +412,7 @@ async def ai_powered_search(request: SearchRequest, req: Request):
                         return False
                     supported = not is_generic_answer(ai_response, full_context)
                     if not supported:
-                        ai_response = hybrid_rag(request.query)
+                        ai_response = hybrid_rag(request.query, api_key=api_key)
             # If ast.literal_eval succeeded and ai_response is still a dict, extract 'answer'
             if isinstance(ai_response, dict):
                 ai_response = ai_response.get('answer', '').strip()
