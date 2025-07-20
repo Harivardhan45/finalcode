@@ -10,8 +10,25 @@ API_TOKEN = os.getenv("CONFLUENCE_API_KEY")
 def markdown_to_confluence_storage(text):
     # Convert markdown bold (**text**) to <strong>text</strong>
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\\1</strong>", text)
-    # Optionally, handle other markdown (headers, italics, etc.) here
-    return text
+    # Convert markdown bullets to <ul><li>...</li></ul>
+    lines = text.splitlines()
+    in_list = False
+    new_lines = []
+    for line in lines:
+        bullet = re.match(r"^\s*[\*\-]\s+(.*)", line)
+        if bullet:
+            if not in_list:
+                new_lines.append("<ul>")
+                in_list = True
+            new_lines.append(f"<li>{bullet.group(1)}</li>")
+        else:
+            if in_list:
+                new_lines.append("</ul>")
+                in_list = False
+            new_lines.append(line)
+    if in_list:
+        new_lines.append("</ul>")
+    return "\n".join(new_lines)
 
 def update_confluence_page(hlsd_content):
     # Convert markdown to Confluence storage format

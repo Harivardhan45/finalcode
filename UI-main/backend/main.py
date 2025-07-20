@@ -1396,6 +1396,11 @@ async def test_endpoint():
     """Test endpoint to verify backend is working"""
     return {"message": "Backend is working", "status": "ok"}
 
+@app.get("/health")
+async def health_check():
+    """Sample health check endpoint for testing purposes."""
+    return {"status": "ok", "message": "Health endpoint is working."}
+
 def get_actual_api_key_from_identifier(identifier: str) -> str:
     if identifier and identifier.startswith('GENAI_API_KEY_'):
         key = os.getenv(identifier)
