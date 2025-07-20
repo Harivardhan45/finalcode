@@ -286,6 +286,11 @@ Answer:
 async def root():
     return {"message": "Confluence AI Assistant API", "status": "running"}
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring purposes."""
+    return {"status": "healthy"}
+
 @app.get("/spaces")
 async def get_spaces():
     """Get all available Confluence spaces"""
