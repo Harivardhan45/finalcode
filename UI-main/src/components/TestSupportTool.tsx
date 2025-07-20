@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TestTube, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image } from 'lucide-react';
-import { FeatureType } from '../App';
+import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import ReactMarkdown from 'react-markdown';
@@ -9,6 +9,7 @@ import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 interface TestSupportToolProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
+  onModeSelect: (mode: AppMode) => void;
   autoSpaceKey?: string | null;
   isSpaceAutoConnected?: boolean;
 }
@@ -19,7 +20,7 @@ interface TestReport {
   sensitivity?: string;
 }
 
-const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
+const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSelect, onModeSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [selectedSpace, setSelectedSpace] = useState('');
   const [codePage, setCodePage] = useState('');
   const [testInputPage, setTestInputPage] = useState('');
@@ -186,32 +187,22 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
       console.log('Missing question or code page:', { question, selectedSpace, codePage });
       return;
     }
-    
-    console.log('Adding question to test support tool:', question);
     setIsQALoading(true);
-    
     try {
+      // Hybrid RAG + LLM fallback handled by backend at /test-support
       const result = await apiService.testSupport({
         space_key: selectedSpace,
         code_page_title: codePage,
         test_input_page_title: testInputPage || undefined,
         question: question
       });
-
-      console.log('Test support Q&A response:', result);
-
       const answer = result.ai_response || `Based on the test analysis, here's the response to your question: "${question}"
-
-The test coverage analysis shows comprehensive validation of the code functionality. The sensitivity check indicates ${question.toLowerCase().includes('security') ? 'strong security measures in place' : question.toLowerCase().includes('performance') ? 'good performance characteristics' : 'robust error handling and edge case coverage'}.
-
-This analysis is based on the test scenarios and code review performed.`;
-
+\nThe test coverage analysis shows comprehensive validation of the code functionality. The sensitivity check indicates ${question.toLowerCase().includes('security') ? 'strong security measures in place' : question.toLowerCase().includes('performance') ? 'good performance characteristics' : 'robust error handling and edge case coverage'}.\n\nThis analysis is based on the test scenarios and code review performed.`;
       setQaResults([...qaResults, { question, answer }]);
       setQuestion('');
     } catch (err) {
       console.error('Test support Q&A error:', err);
       setError('Failed to get answer. Please try again.');
-      console.error('Error getting answer:', err);
     } finally {
       setIsQALoading(false);
     }
@@ -268,9 +259,17 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                 <p className="text-blue-100/90">AI-powered tools for your Confluence workspace</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => onModeSelect('agent')}
+                className="text-blue-100 hover:text-white hover:bg-white/10 rounded-lg px-3 py-1 text-sm transition-colors"
+              >
+                Switch to Agent Mode
+              </button>
+              <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
           
           {/* Feature Navigation */}

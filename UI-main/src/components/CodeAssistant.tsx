@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Code, FileText, Download, Save, X, ChevronDown, Loader2, Zap, Search, Video, TrendingUp, TestTube, Image } from 'lucide-react';
-import { FeatureType } from '../App';
+import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
@@ -8,11 +8,12 @@ import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 interface CodeAssistantProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
+  onModeSelect: (mode: AppMode) => void;
   autoSpaceKey?: string | null;
   isSpaceAutoConnected?: boolean;
 }
 
-const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
+const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect, onModeSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [selectedSpace, setSelectedSpace] = useState('');
   const [selectedPage, setSelectedPage] = useState('');
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -174,9 +175,17 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                 <p className="text-blue-100/90">AI-powered tools for your Confluence workspace</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => onModeSelect('agent')}
+                className="text-blue-100 hover:text-white hover:bg-white/10 rounded-lg px-3 py-1 text-sm transition-colors"
+              >
+                Switch to Agent Mode
+              </button>
+              <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
           
           {/* Feature Navigation */}

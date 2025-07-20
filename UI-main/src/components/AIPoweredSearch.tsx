@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Download, Save, FileText, X, ChevronDown, Loader2, Settings, Video, Code, TrendingUp, TestTube, Image, CheckCircle } from 'lucide-react';
-import { FeatureType } from '../App';
+import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
@@ -8,6 +8,7 @@ import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 interface AIPoweredSearchProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
+  onModeSelect: (mode: AppMode) => void;
   autoSpaceKey?: string | null;
   isSpaceAutoConnected?: boolean;
 }
@@ -15,6 +16,7 @@ interface AIPoweredSearchProps {
 const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({ 
   onClose, 
   onFeatureSelect, 
+  onModeSelect,
   autoSpaceKey, 
   isSpaceAutoConnected 
 }) => {
@@ -105,12 +107,12 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
     setError('');
 
     try {
+      // Hybrid RAG + LLM fallback handled by backend at /search
       const result = await apiService.search({
         space_key: selectedSpace,
         page_titles: selectedPages,
         query: query
       });
-
       setResponse(result.response);
     } catch (err) {
       setError('Failed to generate AI response. Please try again.');
@@ -155,9 +157,17 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                 <p className="text-blue-100/90">AI-powered tools for your Confluence workspace</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => onModeSelect('agent')}
+                className="text-blue-100 hover:text-white hover:bg-white/10 rounded-lg px-3 py-1 text-sm transition-colors"
+              >
+                Switch to Agent Mode
+              </button>
+              <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
           
           {/* Feature Navigation */}

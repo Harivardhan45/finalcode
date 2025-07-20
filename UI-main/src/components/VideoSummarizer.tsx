@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Video, Download, Save, X, ChevronDown, ChevronRight, Loader2, Search, Code, TrendingUp, TestTube, MessageSquare, Check, ChevronUp, Image } from 'lucide-react';
-import { FeatureType } from '../App';
+import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
@@ -8,6 +8,7 @@ import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 interface VideoSummarizerProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
+  onModeSelect: (mode: AppMode) => void;
   autoSpaceKey?: string | null;
   isSpaceAutoConnected?: boolean;
 }
@@ -21,7 +22,7 @@ interface VideoContent {
   qa?: { question: string; answer: string }[];
 }
 
-const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
+const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSelect, onModeSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [selectedSpace, setSelectedSpace] = useState('');
   const [selectedPages, setSelectedPages] = useState<string[]>([]);
   const [videos, setVideos] = useState<VideoContent[]>([]);
@@ -151,34 +152,27 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
       console.log('Missing question or selected video:', { newQuestion, selectedVideo });
       return;
     }
-    
-    console.log('Adding question:', newQuestion, 'for video:', selectedVideo);
     setIsQALoading(true);
-    
     try {
+      // Hybrid RAG + LLM fallback handled by backend at /video-summarizer
       const result = await apiService.videoSummarizer({
         space_key: selectedSpace,
         page_title: selectedPages[0], // Use first selected page for Q&A
         question: newQuestion
       });
-
-      console.log('Q&A API response:', result);
-
       const answer = result.answer || 'AI-generated answer based on the video content analysis...';
-      
-      setVideos(prev => prev.map(v => 
-        v.id === selectedVideo 
-          ? { 
-              ...v, 
-              qa: [...(v.qa || []), { question: newQuestion, answer: answer }]
-            } 
+      setVideos(prev => prev.map(v =>
+        v.id === selectedVideo
+          ? {
+              ...v,
+              qa: [...(v.qa || []), { question: newQuestion, answer }]
+            }
           : v
       ));
       setNewQuestion('');
     } catch (err) {
       console.error('Q&A API error:', err);
       setError('Failed to get answer. Please try again.');
-      console.error('Error getting answer:', err);
     } finally {
       setIsQALoading(false);
     }
@@ -271,9 +265,17 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                 <p className="text-blue-100/90">AI-powered tools for your Confluence workspace</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => onModeSelect('agent')}
+                className="text-blue-100 hover:text-white hover:bg-white/10 rounded-lg px-3 py-1 text-sm transition-colors"
+              >
+                Switch to Agent Mode
+              </button>
+              <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
           
           {/* Feature Navigation */}

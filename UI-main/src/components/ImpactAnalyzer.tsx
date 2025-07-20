@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, GitCompare, AlertTriangle, CheckCircle, X, ChevronDown, Loader2, Download, Save, MessageSquare, Search, Video, Code, TestTube, Image } from 'lucide-react';
-import { FeatureType } from '../App';
+import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
@@ -8,6 +8,7 @@ import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 interface ImpactAnalyzerProps {
   onClose: () => void;
   onFeatureSelect: (feature: FeatureType) => void;
+  onModeSelect: (mode: AppMode) => void;
   autoSpaceKey?: string | null;
   isSpaceAutoConnected?: boolean;
 }
@@ -25,7 +26,7 @@ interface RiskLevel {
   factors: string[];
 }
 
-const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelect, autoSpaceKey, isSpaceAutoConnected }) => {
+const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelect, onModeSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [selectedSpace, setSelectedSpace] = useState('');
   const [oldPage, setOldPage] = useState('');
   const [newPage, setNewPage] = useState('');
@@ -134,32 +135,22 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
       console.log('Missing question or pages:', { question, selectedSpace, oldPage, newPage });
       return;
     }
-    
-    console.log('Adding question to impact analyzer:', question);
     setIsQALoading(true);
-    
     try {
+      // Hybrid RAG + LLM fallback handled by backend at /impact-analyzer
       const result = await apiService.impactAnalyzer({
         space_key: selectedSpace,
         old_page_title: oldPage,
         new_page_title: newPage,
         question: question
       });
-
-      console.log('Impact analyzer Q&A response:', result);
-
       const answer = result.answer || `Based on the code changes analyzed, here's the response to your question: "${question}"
-
-The modifications primarily focus on security enhancements and input validation. The impact on ${question.toLowerCase().includes('performance') ? 'performance is minimal as the added validation checks are lightweight operations' : question.toLowerCase().includes('security') ? 'security is highly positive, significantly reducing attack surface' : 'the system is generally positive with improved robustness'}.
-
-This analysis is based on the diff comparison between the selected versions.`;
-
+\nThe modifications primarily focus on security enhancements and input validation. The impact on ${question.toLowerCase().includes('performance') ? 'performance is minimal as the added validation checks are lightweight operations' : question.toLowerCase().includes('security') ? 'security is highly positive, significantly reducing attack surface' : 'the system is generally positive with improved robustness'}.\n\nThis analysis is based on the diff comparison between the selected versions.`;
       setQaResults([...qaResults, { question, answer }]);
       setQuestion('');
     } catch (err) {
       console.error('Impact analyzer Q&A error:', err);
       setError('Failed to get answer. Please try again.');
-      console.error('Error getting answer:', err);
     } finally {
       setIsQALoading(false);
     }
@@ -245,9 +236,17 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                 <p className="text-blue-100/90">AI-powered tools for your Confluence workspace</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => onModeSelect('agent')}
+                className="text-blue-100 hover:text-white hover:bg-white/10 rounded-lg px-3 py-1 text-sm transition-colors"
+              >
+                Switch to Agent Mode
+              </button>
+              <button onClick={onClose} className="text-white hover:bg-white/10 rounded-full p-2 backdrop-blur-sm">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
           
           {/* Feature Navigation */}

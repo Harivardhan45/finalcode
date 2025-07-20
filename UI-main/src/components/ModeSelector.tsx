@@ -8,7 +8,7 @@ interface ModeSelectorProps {
 }
 
 const ModeSelector: React.FC<ModeSelectorProps> = ({ onModeSelect, onClose }) => {
-  const [selectedMode, setSelectedMode] = useState<'agent' | 'tool'>('agent');
+  const [selectedMode, setSelectedMode] = useState<'agent' | 'tool'>('tool');
 
   const handleModeChange = (mode: 'agent' | 'tool') => {
     setSelectedMode(mode);
