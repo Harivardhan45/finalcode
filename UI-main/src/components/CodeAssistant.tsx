@@ -149,12 +149,116 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
     setError('');
 
     try {
-      // If AI action is selected, process it first
+      // If all three are selected: target language -> modification -> AI action
+      if (hasTargetLanguage && hasModificationInstruction && hasAiAction) {
+        // 1. Convert code to target language
+        const conversionResult = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPage,
+          instruction: '',
+          target_language: targetLanguage
+        });
+        const convertedCode = conversionResult.converted_code || conversionResult.modified_code || conversionResult.original_code || '';
+        // 2. Apply modification instruction to converted code
+        const modResult = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPage,
+          instruction: `${instruction}\n\n${convertedCode}`,
+          target_language: '',
+        });
+        const modifiedCode = modResult.modified_code || modResult.converted_code || modResult.original_code || '';
+        // 3. Apply AI action to modified code
+        const actionPromptMap: Record<string, string> = {
+          "Summarize Code": `Summarize the following code in clear and concise language:\n\n${modifiedCode}`,
+          "Optimize Performance": `Optimize the following code for performance without changing its functionality, return only the updated code:\n\n${modifiedCode}`,
+          "Generate Documentation": `Generate inline documentation and function-level comments for the following code, return only the updated code by commenting the each line of the code.:\n\n${modifiedCode}`,
+          "Refactor Structure": `Refactor the following code to improve structure, readability, and modularity, return only the updated code:\n\n${modifiedCode}`,
+          "Identify dead code": `Analyze the following code for any unsued code or dead code, return only the updated code by removing the dead code:\n\n${modifiedCode}`,
+          "Add Logging Statements": `Add appropriate logging statements to the following code for better traceability and debugging. Return only the updated code:\n\n${modifiedCode}`,
+        };
+        const prompt = actionPromptMap[aiAction];
+        if (!prompt) {
+          setAiActionOutput('');
+          setIsProcessing(false);
+          return;
+        }
+        const actionResult = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPage,
+          instruction: prompt
+        });
+        setAiActionOutput(actionResult.modified_code || actionResult.converted_code || actionResult.original_code || 'AI action completed successfully.');
+        setProcessedCode('');
+        return;
+      }
+
+      // If modification instruction and target language are selected (but not AI action): target language -> modification
+      if (hasTargetLanguage && hasModificationInstruction && !hasAiAction) {
+        // 1. Convert code to target language
+        const conversionResult = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPage,
+          instruction: '',
+          target_language: targetLanguage
+        });
+        const convertedCode = conversionResult.converted_code || conversionResult.modified_code || conversionResult.original_code || '';
+        // 2. Apply modification instruction to converted code
+        const modResult = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPage,
+          instruction: `${instruction}\n\n${convertedCode}`,
+          target_language: '',
+        });
+        setModificationOutput(modResult.modified_code || modResult.converted_code || modResult.original_code || 'Modification completed successfully.');
+        setConversionOutput('');
+        setAiActionOutput('');
+        setProcessedCode('');
+        return;
+      }
+
+      // If both target language and AI action are selected (but not modification): target language -> AI action
+      if (hasTargetLanguage && !hasModificationInstruction && hasAiAction) {
+        // 1. Convert code to target language
+        const conversionResult = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPage,
+          instruction: '',
+          target_language: targetLanguage
+        });
+        const convertedCode = conversionResult.converted_code || conversionResult.modified_code || conversionResult.original_code || '';
+        setConversionOutput('');
+        setModificationOutput('');
+        // 2. Apply AI action to converted code
+        const actionPromptMap: Record<string, string> = {
+          "Summarize Code": `Summarize the following code in clear and concise language:\n\n${convertedCode}`,
+          "Optimize Performance": `Optimize the following code for performance without changing its functionality, return only the updated code:\n\n${convertedCode}`,
+          "Generate Documentation": `Generate inline documentation and function-level comments for the following code, return only the updated code by commenting the each line of the code.:\n\n${convertedCode}`,
+          "Refactor Structure": `Refactor the following code to improve structure, readability, and modularity, return only the updated code:\n\n${convertedCode}`,
+          "Identify dead code": `Analyze the following code for any unsued code or dead code, return only the updated code by removing the dead code:\n\n${convertedCode}`,
+          "Add Logging Statements": `Add appropriate logging statements to the following code for better traceability and debugging. Return only the updated code:\n\n${convertedCode}`,
+        };
+        const prompt = actionPromptMap[aiAction];
+        if (!prompt) {
+          setAiActionOutput('');
+          setIsProcessing(false);
+          return;
+        }
+        const actionResult = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPage,
+          instruction: prompt
+        });
+        setAiActionOutput(actionResult.modified_code || actionResult.converted_code || actionResult.original_code || 'AI action completed successfully.');
+        setProcessedCode('');
+        return;
+      }
+
+      // If only AI action is selected
       if (hasAiAction) {
         await runAiAction();
       }
 
-      // If modification instruction or target language is selected, process with API
+      // If only modification instruction or target language is selected, process with API
       if (hasModificationInstruction || hasTargetLanguage) {
         const result = await apiService.codeAssistant({
           space_key: selectedSpace,
@@ -162,7 +266,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
           instruction: instruction,
           target_language: targetLanguage || undefined
         });
-
         // Show converted code if target language is selected
         if (hasTargetLanguage && result.converted_code) {
           setConversionOutput(result.converted_code);
@@ -174,6 +277,10 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
           setModificationOutput(result.modified_code);
         } else {
           setModificationOutput('');
+        }
+        // Fallback for legacy processedCode
+        if (!hasTargetLanguage && !hasModificationInstruction && result.original_code) {
+          setProcessedCode(result.original_code);
         }
       }
     } catch (err) {
@@ -471,98 +578,56 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
 
             {/* Right Column - Processed Code */}
             <div className="space-y-6">
+              {/* AI Result section: show all outputs */}
               <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-800">AI Result</h3>
-                  {processedCode && (
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => exportCode('js')}
-                        className="px-3 py-1 bg-confluence-blue/90 backdrop-blur-sm text-white rounded text-sm hover:bg-confluence-blue transition-colors border border-white/10"
-                      >
-                        Export
-                      </button>
-                      <button
-                        onClick={async () => {
-                          const { space, page } = getConfluenceSpaceAndPageFromUrl();
-                          if (!space || !page) {
-                            alert('Confluence space or page not specified in macro src URL.');
-                            return;
-                          }
-                          try {
-                            await apiService.saveToConfluence({
-                              space_key: space,
-                              page_title: page,
-                              content: processedCode || '',
-                            });
-                            setShowToast(true);
-                            setTimeout(() => setShowToast(false), 3000);
-                          } catch (err: any) {
-                            alert('Failed to save to Confluence: ' + (err.message || err));
-                          }
-                        }}
-                        className="flex items-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
-                      >
-                        <Save className="w-4 h-4" />
-                        <span>Save to Confluence</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
-                
-                {/* AI Result section: show all outputs */}
-                <div className="space-y-6">
-                  <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-gray-800">AI Result</h3>
+                {aiActionOutput && (
+                  <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-96 border border-white/10">
+                    <div className="mb-2 text-sm text-gray-400">
+                      <strong>AI Action:</strong> {aiAction}
                     </div>
-                    {aiActionOutput && (
-                      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-96 border border-white/10">
-                        <div className="mb-2 text-sm text-gray-400">
-                          <strong>AI Action:</strong> {aiAction}
-                        </div>
-                        <pre className="text-sm text-gray-300">
-                          <code>{aiActionOutput}</code>
-                        </pre>
-                      </div>
-                    )}
-                    {conversionOutput && (
-                      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-96 border border-white/10">
-                        <div className="mb-2 text-sm text-gray-400">
-                          <strong>Target Language Conversion:</strong> {targetLanguage}
-                        </div>
-                        <pre className="text-sm text-gray-300">
-                          <code>{conversionOutput}</code>
-                        </pre>
-                      </div>
-                    )}
-                    {modificationOutput && (
-                      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-96 border border-white/10">
-                        <div className="mb-2 text-sm text-gray-400">
-                          <strong>Modification Instruction:</strong> {instruction}
-                        </div>
-                        <pre className="text-sm text-gray-300">
-                          <code>{modificationOutput}</code>
-                        </pre>
-                      </div>
-                    )}
-                    {/* Fallback: processedCode for legacy support */}
-                    {!aiActionOutput && !conversionOutput && !modificationOutput && processedCode && (
-                      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-96 border border-white/10">
-                        <pre className="text-sm text-gray-300">
-                          <code>{processedCode}</code>
-                        </pre>
-                      </div>
-                    )}
-                    {/* Fallback: empty state */}
-                    {!aiActionOutput && !conversionOutput && !modificationOutput && !processedCode && (
-                      <div className="text-center py-8 text-gray-500">
-                        <Zap className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                        <p>Process code to see AI results</p>
-                      </div>
-                    )}
+                    <pre className="text-sm text-gray-300">
+                      <code>{aiActionOutput}</code>
+                    </pre>
                   </div>
-                </div>
+                )}
+                {conversionOutput && (
+                  <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-96 border border-white/10">
+                    <div className="mb-2 text-sm text-gray-400">
+                      <strong>Target Language Conversion:</strong> {targetLanguage}
+                    </div>
+                    <pre className="text-sm text-gray-300">
+                      <code>{conversionOutput}</code>
+                    </pre>
+                  </div>
+                )}
+                {modificationOutput && (
+                  <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-96 border border-white/10">
+                    <div className="mb-2 text-sm text-gray-400">
+                      <strong>Modification Instruction:</strong> {instruction}
+                    </div>
+                    <pre className="text-sm text-gray-300">
+                      <code>{modificationOutput}</code>
+                    </pre>
+                  </div>
+                )}
+                {/* Fallback: processedCode for legacy support */}
+                {!aiActionOutput && !conversionOutput && !modificationOutput && processedCode && (
+                  <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-96 border border-white/10">
+                    <pre className="text-sm text-gray-300">
+                      <code>{processedCode}</code>
+                    </pre>
+                  </div>
+                )}
+                {/* Fallback: empty state */}
+                {!aiActionOutput && !conversionOutput && !modificationOutput && !processedCode && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Zap className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                    <p>Process code to see AI results</p>
+                  </div>
+                )}
               </div>
 
               {/* Export Options */}
