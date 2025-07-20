@@ -20,6 +20,7 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 import difflib
 import base64
+from .test import hybrid_rag
 
 # Load environment variables
 load_dotenv()
@@ -288,13 +289,86 @@ async def ai_powered_search(request: SearchRequest, req: Request):
             f"Instructions: Begin with the answer based on the context above. Then, if applicable, supplement with general knowledge."
         )
         
-        response = ai_model.generate_content(prompt)
-        ai_response = response.text.strip()
-        
+        structured_prompt = (
+            f"Answer the following question using ONLY the provided context. Return your answer as JSON: {{'answer': <your answer>, 'supported_by_context': true/false}}. If the answer is not in the context, set 'supported_by_context' to false.\n"
+            f"Context:\n{full_context}\n\n"
+            f"Question: {request.query}"
+        )
+        response = ai_model.generate_content(structured_prompt)
+        import json as _json
+        try:
+            result = _json.loads(response.text.strip())
+            ai_response = result.get('answer', '').strip()
+            supported = result.get('supported_by_context', False)
+            if not supported:
+                ai_response = hybrid_rag(request.query)
+        except Exception:
+            ai_response = response.text.strip()
+            supported = None
+            # Try ast.literal_eval for Python-style dict
+            import ast, re
+            try:
+                result = ast.literal_eval(response.text.strip())
+                if isinstance(result, dict):
+                    ai_response = result.get('answer', '').strip()
+                    supported = result.get('supported_by_context', False)
+                    if not supported:
+                        ai_response = hybrid_rag(request.query)
+            except Exception:
+                # Regex fallback for supported_by_context: false
+                if re.search(r"supported_by_context['\"]?\s*[:=]\s*false", response.text.strip(), re.IGNORECASE):
+                    ai_response = hybrid_rag(request.query)
+                else:
+                    # Heuristic: If the answer is not generic and overlaps with context, accept it
+                    def is_generic_answer(answer, context):
+                        generic_phrases = [
+                            "There are several ways to summarize",
+                            "Online tools like",
+                            "AI summarizers",
+                            "Some platforms",
+                            "depending on the tools available",
+                            "limitations on document length",
+                            "require paid subscriptions",
+                            "offer built-in summarization capabilities",
+                            "Google Assistant can summarize",
+                            "TLDThis.com offer free text summarization",
+                            "Atlassian Intelligence",
+                            "Other AI summarizers",
+                            "If accessed through the Google Chrome browser",
+                            "desired level of detail"
+                        ]
+                        answer_lower = answer.lower()
+                        if len(answer) < 80:
+                            return True
+                        for phrase in generic_phrases:
+                            if phrase.lower() in answer_lower:
+                                return True
+                        # Check for overlap with context (at least 2 unique words in both)
+                        context_words = set(context.lower().split())
+                        answer_words = set(answer_lower.split())
+                        overlap = context_words.intersection(answer_words)
+                        if len(overlap) < 2:
+                            return True
+                        return False
+                    supported = not is_generic_answer(ai_response, full_context)
+                    if not supported:
+                        ai_response = hybrid_rag(request.query)
+            # If ast.literal_eval succeeded and ai_response is still a dict, extract 'answer'
+            if isinstance(ai_response, dict):
+                ai_response = ai_response.get('answer', '').strip()
+            # If ai_response is still a string that looks like a dict, extract 'answer' value with regex
+            elif isinstance(ai_response, str):
+                match = re.search(r"['\"]?answer['\"]?\s*:\s*['\"]([^'\"]+)['\"]", ai_response)
+                if match:
+                    ai_response = match.group(1).strip()
+        page_titles = [p["title"] for p in selected_pages]
+        grounding = f"This answer is based on the following Confluence page(s): {', '.join(page_titles)}."
+        final_response = ai_response
         return {
-            "response": ai_response,
+            "response": f"{final_response}\n\n{grounding}",
             "pages_analyzed": len(selected_pages),
-            "page_titles": [p["title"] for p in selected_pages]
+            "page_titles": page_titles,
+            "grounding": grounding
         }
         
     except Exception as e:

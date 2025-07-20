@@ -135,22 +135,32 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
       console.log('Missing question or pages:', { question, selectedSpace, oldPage, newPage });
       return;
     }
+    
+    console.log('Adding question to impact analyzer:', question);
     setIsQALoading(true);
+    
     try {
-      // Hybrid RAG + LLM fallback handled by backend at /impact-analyzer
       const result = await apiService.impactAnalyzer({
         space_key: selectedSpace,
         old_page_title: oldPage,
         new_page_title: newPage,
         question: question
       });
+
+      console.log('Impact analyzer Q&A response:', result);
+
       const answer = result.answer || `Based on the code changes analyzed, here's the response to your question: "${question}"
-\nThe modifications primarily focus on security enhancements and input validation. The impact on ${question.toLowerCase().includes('performance') ? 'performance is minimal as the added validation checks are lightweight operations' : question.toLowerCase().includes('security') ? 'security is highly positive, significantly reducing attack surface' : 'the system is generally positive with improved robustness'}.\n\nThis analysis is based on the diff comparison between the selected versions.`;
+
+The modifications primarily focus on security enhancements and input validation. The impact on ${question.toLowerCase().includes('performance') ? 'performance is minimal as the added validation checks are lightweight operations' : question.toLowerCase().includes('security') ? 'security is highly positive, significantly reducing attack surface' : 'the system is generally positive with improved robustness'}.
+
+This analysis is based on the diff comparison between the selected versions.`;
+
       setQaResults([...qaResults, { question, answer }]);
       setQuestion('');
     } catch (err) {
       console.error('Impact analyzer Q&A error:', err);
       setError('Failed to get answer. Please try again.');
+      console.error('Error getting answer:', err);
     } finally {
       setIsQALoading(false);
     }

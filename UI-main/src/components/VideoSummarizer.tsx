@@ -152,27 +152,34 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
       console.log('Missing question or selected video:', { newQuestion, selectedVideo });
       return;
     }
+    
+    console.log('Adding question:', newQuestion, 'for video:', selectedVideo);
     setIsQALoading(true);
+    
     try {
-      // Hybrid RAG + LLM fallback handled by backend at /video-summarizer
       const result = await apiService.videoSummarizer({
         space_key: selectedSpace,
         page_title: selectedPages[0], // Use first selected page for Q&A
         question: newQuestion
       });
+
+      console.log('Q&A API response:', result);
+
       const answer = result.answer || 'AI-generated answer based on the video content analysis...';
-      setVideos(prev => prev.map(v =>
-        v.id === selectedVideo
-          ? {
-              ...v,
-              qa: [...(v.qa || []), { question: newQuestion, answer }]
-            }
+      
+      setVideos(prev => prev.map(v => 
+        v.id === selectedVideo 
+          ? { 
+              ...v, 
+              qa: [...(v.qa || []), { question: newQuestion, answer: answer }]
+            } 
           : v
       ));
       setNewQuestion('');
     } catch (err) {
       console.error('Q&A API error:', err);
       setError('Failed to get answer. Please try again.');
+      console.error('Error getting answer:', err);
     } finally {
       setIsQALoading(false);
     }

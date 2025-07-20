@@ -187,22 +187,32 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
       console.log('Missing question or code page:', { question, selectedSpace, codePage });
       return;
     }
+    
+    console.log('Adding question to test support tool:', question);
     setIsQALoading(true);
+    
     try {
-      // Hybrid RAG + LLM fallback handled by backend at /test-support
       const result = await apiService.testSupport({
         space_key: selectedSpace,
         code_page_title: codePage,
         test_input_page_title: testInputPage || undefined,
         question: question
       });
+
+      console.log('Test support Q&A response:', result);
+
       const answer = result.ai_response || `Based on the test analysis, here's the response to your question: "${question}"
-\nThe test coverage analysis shows comprehensive validation of the code functionality. The sensitivity check indicates ${question.toLowerCase().includes('security') ? 'strong security measures in place' : question.toLowerCase().includes('performance') ? 'good performance characteristics' : 'robust error handling and edge case coverage'}.\n\nThis analysis is based on the test scenarios and code review performed.`;
+
+The test coverage analysis shows comprehensive validation of the code functionality. The sensitivity check indicates ${question.toLowerCase().includes('security') ? 'strong security measures in place' : question.toLowerCase().includes('performance') ? 'good performance characteristics' : 'robust error handling and edge case coverage'}.
+
+This analysis is based on the test scenarios and code review performed.`;
+
       setQaResults([...qaResults, { question, answer }]);
       setQuestion('');
     } catch (err) {
       console.error('Test support Q&A error:', err);
       setError('Failed to get answer. Please try again.');
+      console.error('Error getting answer:', err);
     } finally {
       setIsQALoading(false);
     }

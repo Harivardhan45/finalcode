@@ -107,12 +107,12 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
     setError('');
 
     try {
-      // Hybrid RAG + LLM fallback handled by backend at /search
       const result = await apiService.search({
         space_key: selectedSpace,
         page_titles: selectedPages,
         query: query
       });
+
       setResponse(result.response);
     } catch (err) {
       setError('Failed to generate AI response. Please try again.');

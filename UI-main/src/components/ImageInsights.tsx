@@ -184,13 +184,14 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
 
   const addQuestion = async () => {
     if (!newQuestion.trim() || !selectedImage) return;
+    
     setIsAskingQuestion(true);
     try {
       const image = images.find(img => img.id === selectedImage);
       if (!image || !image.pageTitle || !image.summary) {
         throw new Error('Image not found or missing required data');
       }
-      // Hybrid RAG + LLM fallback handled by backend at /image-qa
+      
       const response = await apiService.imageQA({
         space_key: spaceKey,
         page_title: image.pageTitle,
@@ -198,6 +199,7 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
         summary: image.summary,
         question: newQuestion
       });
+      
       setImages(prev => prev.map(img =>
         img.id === selectedImage
           ? {
@@ -211,7 +213,8 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
       console.error('Failed to get AI response:', error);
       // Fallback to sample answer
       const answer = `Based on the AI analysis of this image, here's the response to your question: "${newQuestion}"
-\nThe image analysis reveals specific data patterns and visual elements that directly relate to your inquiry. The AI has processed the visual content and extracted relevant insights to provide this contextual response.`;
+
+The image analysis reveals specific data patterns and visual elements that directly relate to your inquiry. The AI has processed the visual content and extracted relevant insights to provide this contextual response.`;
       setImages(prev => prev.map(img =>
         img.id === selectedImage
           ? {
@@ -220,6 +223,7 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
             }
           : img
       ));
+      setNewQuestion('');
     } finally {
       setIsAskingQuestion(false);
     }
