@@ -7,6 +7,7 @@ services:
       cd UI-main/backend
       pip install -r requirements.txt
     startCommand: |
+      apt-get update && apt-get install -y graphviz
       cd UI-main/backend
       uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
