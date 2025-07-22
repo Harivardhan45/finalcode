@@ -20,8 +20,124 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 import difflib
 import base64
-from diagram import detect_content_type, gemini_generate_flowchart_structure, build_flowchart_from_gemini
 import graphviz
+# --- BEGIN: Integrated Flowchart Builder Functions ---
+import re
+
+def detect_content_type(text: str):
+    """Detect if content is code with type tags or step-by-step procedure"""
+    lines = text.splitlines()
+    code_indicators = 0
+    step_indicators = 0
+    for line in lines:
+        line_lower = line.lower().strip()
+        if re.search(r'# type:', line):
+            code_indicators += 5
+        if re.search(r'def\s+\w+', line):
+            code_indicators += 3
+        if re.search(r'class\s+\w+', line):
+            code_indicators += 3
+        if re.search(r'#', line):
+            code_indicators += 2
+        if re.search(r'import\s+', line):
+            code_indicators += 1
+        if re.search(r'from\s+', line):
+            code_indicators += 1
+        if re.match(r'^STEP\s+\d+', line, re.IGNORECASE):
+            step_indicators += 5
+        if re.match(r'^\d+[\.\)]', line):
+            step_indicators += 3
+        if re.match(r'^[•·]\s+', line):
+            step_indicators += 2
+        if re.match(r'^[-*]\s+', line):
+            step_indicators += 2
+        if re.search(r'\?\s*(Yes|No|Y|N)', line, re.IGNORECASE):
+            step_indicators += 2
+    if code_indicators > step_indicators:
+        return "code"
+    elif step_indicators > 0:
+        return "procedure"
+    else:
+        return "unknown"
+
+
+def gemini_generate_flowchart_structure(text):
+    import os
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GENAI_API_KEY_1") or os.getenv("GENAI_API_KEY_2")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY or GENAI_API_KEY_1/2 not set in environment.")
+    import google.generativeai as genai
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("models/gemini-1.5-flash")
+    prompt = (
+        "You are an expert at extracting flowchart logic from code or pseudocode. "
+        "Given the following content, extract a flowchart structure as JSON with nodes (id, label, type) and edges (from, to, label). "
+        "Types can be: start, end, process, io, decision, predefined, preprocessor, data, off_page, page_connector, comment. "
+        "For decisions, include Yes/No labels on edges. "
+        "Content:\n" + text +
+        "\nRespond ONLY with a JSON object: {nodes: [...], edges: [...]}"
+    )
+    response = model.generate_content(prompt)
+    gemini_text = None
+    if hasattr(response, "text") and isinstance(response.text, str):
+        gemini_text = response.text
+    elif hasattr(response, "candidates"):
+        try:
+            gemini_text = response.candidates[0].content.parts[0].text
+        except Exception:
+            pass
+    import json
+    import re as _re
+    try:
+        if not isinstance(gemini_text, str):
+            gemini_text_str = str(gemini_text) if gemini_text is not None else ""
+        else:
+            gemini_text_str = gemini_text
+        gemini_text_str = gemini_text_str.strip()
+        cleaned = _re.sub(r"^```json\s*|```$", "", gemini_text_str, flags=_re.MULTILINE)
+        match = _re.search(r'\{[\s\S]*\}', cleaned)
+    except Exception as e:
+        raise ValueError(f"Could not clean Gemini response: {e}\nRaw: {gemini_text}")
+    if not match:
+        raise ValueError("Gemini did not return a valid JSON structure.")
+    try:
+        return json.loads(match.group(0))
+    except Exception as e:
+        raise ValueError(f"Failed to parse Gemini JSON: {e}\nRaw: {cleaned}")
+
+
+def build_flowchart_from_gemini(flowchart):
+    dot = graphviz.Digraph(format="png", engine="dot", graph_attr={
+        "dpi": "300",
+        "nodesep": "0.5",
+        "ranksep": "0.5",
+        "splines": "true",
+        "concentrate": "false"
+    })
+    style_map = {
+        "start": ("oval", "#a7f3d0"),
+        "end": ("oval", "#fca5a5"),
+        "process": ("box", "#bfdbfe"),
+        "predefined": ("rect", "#c7d2fe"),
+        "decision": ("diamond", "#fde68a"),
+        "io": ("parallelogram", "#d8b4fe"),
+        "data": ("cylinder", "#bbf7d0"),
+        "preprocessor": ("trapezium", "#ddd6fe"),
+        "off_page": ("box", "#a5f3fc"),
+        "page_connector": ("circle", "#fbcfe8"),
+        "comment": ("note", "#f3f4f6")
+    }
+    for node in flowchart["nodes"]:
+        shape, color = style_map.get(node.get("type", "process"), ("box", "#ffffff"))
+        if node.get("type") == "page_connector":
+            dot.node(str(node["id"]), node["label"], shape=shape, fillcolor=color, style="filled", fontname="Segoe UI", fontsize="14", width="0.7", height="0.7", fixedsize="true")
+        else:
+            dot.node(str(node["id"]), node["label"], shape=shape, fillcolor=color, style="filled", fontname="Segoe UI", fontsize="14")
+    for edge in flowchart["edges"]:
+        label = edge.get("label", "")
+        dot.edge(str(edge["from"]), str(edge["to"]), label=label, arrowsize="0.5", fontname="Segoe UI", fontsize="12")
+    return dot
+# --- END: Integrated Flowchart Builder Functions ---
 
 # Load environment variables
 load_dotenv()
