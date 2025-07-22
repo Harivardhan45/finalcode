@@ -3,6 +3,7 @@ services:
     name: confluence-ai-assistant
     env: python
     buildCommand: |
+      apt-get update && apt-get install -y graphviz
       cd UI-main/backend
       pip install -r requirements.txt
     startCommand: |
