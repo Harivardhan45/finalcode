@@ -52,6 +52,9 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [isExportingChart, setIsExportingChart] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const chartPreviewRef = useRef<HTMLDivElement>(null);
+  const [flowchart, setFlowchart] = useState<{ image: string; debug_content: string; content_type: string } | null>(null);
+  const [isLoadingFlowchart, setIsLoadingFlowchart] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
 
   // Load spaces on component mount
   useEffect(() => {
@@ -118,10 +121,26 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const loadImages = async () => {
     if (!spaceKey || selectedPages.length === 0) return;
     setIsLoadingImages(true);
-    
+    setFlowchart(null);
+    setIsLoadingFlowchart(true);
     try {
+      // Only check flowchart for the first selected page
+      const pageTitle = selectedPages[0];
+      const flowchartRes = await apiService.flowchartBuilder(spaceKey, pageTitle);
+      if (flowchartRes.type === 'flowchart') {
+        setFlowchart({
+          image: flowchartRes.image,
+          debug_content: flowchartRes.debug_content,
+          content_type: flowchartRes.content_type
+        });
+        setIsLoadingFlowchart(false);
+        setIsLoadingImages(false);
+        return;
+      }
+      setFlowchart(null);
+      setIsLoadingFlowchart(false);
+      // Proceed with normal image loading if not flowchart
       const allImages: ImageData[] = [];
-      
       for (const pageTitle of selectedPages) {
         try {
           const response = await apiService.getImages(spaceKey, pageTitle);
@@ -137,10 +156,12 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
           console.error(`Failed to load images from page ${pageTitle}:`, error);
         }
       }
-      
       setImages(allImages);
     } catch (error) {
-      console.error('Failed to load images:', error);
+      setFlowchart(null);
+      setIsLoadingFlowchart(false);
+      setImages([]);
+      console.error('Failed to load images or flowchart:', error);
     } finally {
       setIsLoadingImages(false);
     }
@@ -623,13 +644,13 @@ ${JSON.stringify(chartData.data, null, 2)}
                 {/* Load Images Button */}
                 <button
                   onClick={loadImages}
-                  disabled={!spaceKey || selectedPages.length === 0 || isLoadingImages}
+                  disabled={!spaceKey || selectedPages.length === 0 || isLoadingImages || isLoadingFlowchart}
                   className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-3 px-4 rounded-lg hover:bg-confluence-blue disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
                 >
-                  {isLoadingImages ? (
+                  {isLoadingImages || isLoadingFlowchart ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Loading Images...</span>
+                      <span>Loading Images/Flowchart...</span>
                     </>
                   ) : (
                     <>
@@ -640,72 +661,122 @@ ${JSON.stringify(chartData.data, null, 2)}
                 </button>
               </div>
             </div>
-            {/* Middle Column - Images Grid */}
+            {/* Middle Column - Images Grid or Flowchart */}
             <div className="xl:col-span-2 space-y-6">
-              {images.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {images.map(image => (
-                    <div key={image.id} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
-                      <div className="aspect-video bg-gray-200/50 backdrop-blur-sm rounded-lg mb-4 overflow-hidden border border-white/20">
-                        <img 
-                          src={image.url} 
-                          alt={image.name}
-                          className="w-full h-full object-cover"
-                        />
+              {isLoadingFlowchart ? (
+                <div className="flex flex-col items-center justify-center h-96">
+                  <Loader2 className="w-10 h-10 animate-spin text-confluence-blue mb-4" />
+                  <p className="text-confluence-blue font-semibold text-lg">Generating Flowchart...</p>
+                </div>
+              ) : flowchart ? (
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-6 border border-white/20 shadow-lg flex flex-col items-center">
+                  <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                    <Zap className="w-5 h-5 mr-2 text-confluence-blue" />
+                    Flowchart Builder
+                  </h3>
+                  <div className="w-full flex flex-col items-center">
+                    <img
+                      src={`data:image/png;base64,${flowchart.image}`}
+                      alt="Generated Flowchart"
+                      className="w-full max-w-2xl h-auto object-contain rounded-lg border border-white/20 shadow"
+                      style={{ background: 'linear-gradient(90deg, #e0e7ff 0%, #f0fdfa 100%)' }}
+                    />
+                    <div className="flex gap-4 mt-6">
+                      <button
+                        onClick={() => {
+                          // Download PNG
+                          const link = document.createElement('a');
+                          link.href = `data:image/png;base64,${flowchart.image}`;
+                          link.download = 'flowchart.png';
+                          link.click();
+                        }}
+                        className="flex items-center px-4 py-2 bg-confluence-blue/90 text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download PNG
+                      </button>
+                      <button
+                        onClick={() => setShowDebug((v) => !v)}
+                        className="flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors border border-white/10"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        {showDebug ? 'Hide' : 'Show'} Raw Content
+                      </button>
+                    </div>
+                    {showDebug && (
+                      <div className="mt-6 w-full max-w-2xl bg-gray-100 rounded-lg p-4 border border-gray-300 overflow-x-auto">
+                        <pre className="text-xs text-gray-700 whitespace-pre-wrap">{flowchart.debug_content}</pre>
+                        <div className="mt-2 text-xs text-gray-500">Detected as: <b>{flowchart.content_type}</b></div>
                       </div>
-                      <h4 className="font-semibold text-gray-800 mb-2">{image.name}</h4>
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => analyzeImage(image.id)}
-                          disabled={isAnalyzing === image.id}
-                          className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-confluence-blue disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
-                        >
-                          {isAnalyzing === image.id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Analyzing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="w-4 h-4" />
-                              <span>Summarize</span>
-                            </>
-                          )}
-                        </button>
-                        {image.summary && (
+                    )}
+                  </div>
+                </div>
+              ) : (
+                images.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {images.map(image => (
+                      <div key={image.id} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                        <div className="aspect-video bg-gray-200/50 backdrop-blur-sm rounded-lg mb-4 overflow-hidden border border-white/20">
+                          <img 
+                            src={image.url} 
+                            alt={image.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <h4 className="font-semibold text-gray-800 mb-2">{image.name}</h4>
+                        <div className="space-y-2">
                           <button
-                            onClick={() => createChart(image.id, selectedChartType, chartExportFormat)}
-                            disabled={isCreatingChart}
-                            className="w-full bg-green-600/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 border border-white/10"
+                            onClick={() => analyzeImage(image.id)}
+                            disabled={isAnalyzing === image.id}
+                            className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-confluence-blue disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
                           >
-                            {isCreatingChart ? (
+                            {isAnalyzing === image.id ? (
                               <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>Creating Chart...</span>
+                                <span>Analyzing...</span>
                               </>
                             ) : (
                               <>
-                                <BarChart3 className="w-4 h-4" />
-                                <span>Create Graph</span>
+                                <Eye className="w-4 h-4" />
+                                <span>Summarize</span>
                               </>
                             )}
                           </button>
+                          {image.summary && (
+                            <button
+                              onClick={() => createChart(image.id, selectedChartType, chartExportFormat)}
+                              disabled={isCreatingChart}
+                              className="w-full bg-green-600/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 border border-white/10"
+                            >
+                              {isCreatingChart ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <span>Creating Chart...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <BarChart3 className="w-4 h-4" />
+                                  <span>Create Graph</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                        {image.summary && (
+                          <div className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
+                            <p className="text-sm text-gray-700">{image.summary}</p>
+                          </div>
                         )}
                       </div>
-                      {image.summary && (
-                        <div className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
-                          <p className="text-sm text-gray-700">{image.summary}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <Image className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No Images Loaded</h3>
-                  <p className="text-gray-500">Select a space and pages to load embedded images for analysis.</p>
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Image className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-600 mb-2">No Images Loaded</h3>
+                    <p className="text-gray-500">Select a space and pages to load embedded images for analysis.</p>
+                  </div>
+                )
               )}
               {/* Chart Preview Section */}
               {chartData && (

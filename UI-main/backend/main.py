@@ -20,6 +20,8 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 import difflib
 import base64
+from diagram import detect_content_type, gemini_generate_flowchart_structure, build_flowchart_from_gemini
+import graphviz
 
 # Load environment variables
 load_dotenv()
@@ -1395,6 +1397,43 @@ async def analyze_goal(request: AnalyzeGoalRequest, req: Request):
 async def test_endpoint():
     """Test endpoint to verify backend is working"""
     return {"message": "Backend is working", "status": "ok"}
+
+@app.post("/flowchart-builder")
+async def flowchart_builder(request: ImageRequest, req: Request):
+    """Detects code/procedural instructions and generates a flowchart if present, else signals to use image insights."""
+    try:
+        confluence = init_confluence()
+        space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
+        # Get page content
+        pages = confluence.get_all_pages_from_space(space=space_key, start=0, limit=100)
+        page = next((p for p in pages if p["title"].strip().lower() == request.page_title.strip().lower()), None)
+        if not page:
+            raise HTTPException(status_code=404, detail=f"Page '{request.page_title}' not found")
+        page_id = page["id"]
+        html_content = confluence.get_page_by_id(page_id=page_id, expand="body.storage")["body"]["storage"]["value"]
+        # Extract text
+        from bs4 import BeautifulSoup
+        text_content = BeautifulSoup(html_content, "html.parser").get_text(separator="\n")
+        # Detect content type
+        content_type = detect_content_type(text_content)
+        if content_type in ("code", "procedure"):
+            # Use Gemini to generate flowchart structure
+            flowchart = gemini_generate_flowchart_structure(text_content)
+            dot = build_flowchart_from_gemini(flowchart)
+            # Render to PNG in memory
+            img_bytes = dot.pipe(format="png")
+            import base64
+            img_b64 = base64.b64encode(img_bytes).decode()
+            return {
+                "type": "flowchart",
+                "image": img_b64,
+                "debug_content": text_content,
+                "content_type": content_type
+            }
+        else:
+            return {"type": "image"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 def get_actual_api_key_from_identifier(identifier: str) -> str:
     if identifier and identifier.startswith('GENAI_API_KEY_'):

@@ -280,6 +280,13 @@ class ApiService {
       body: JSON.stringify(request),
     });
   }
+
+  async flowchartBuilder(spaceKey: string, pageTitle: string): Promise<any> {
+    return this.makeRequest<any>('/flowchart-builder', {
+      method: 'POST',
+      body: JSON.stringify({ space_key: spaceKey, page_title: pageTitle, image_url: '' })
+    });
+  }
 }
 
 export const apiService = new ApiService(); 
