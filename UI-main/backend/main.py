@@ -1370,6 +1370,10 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 if not any(e['from'] == node_ids[i] for e in edges):
                     edges.append({"from": node_ids[i], "to": node_ids[i+1], "label": ""})
             # Mermaid string
+            def safe_label(label):
+                # Remove problematic characters and always wrap in double quotes
+                label = label.replace('"', "'")  # replace double quotes with single
+                return f'"{label.strip()}"'
             mermaid = "flowchart TD\n"
             for n in nodes:
                 shape = (
@@ -1394,7 +1398,7 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                     "))" if n["type"] == "end" else
                     "]"
                 )
-                mermaid += f"    {n['id']}{shape}{n['label']}{endshape}\n"
+                mermaid += f"    {n['id']}{shape}{safe_label(n['label'])}{endshape}\n"
             for e in edges:
                 if e["label"]:
                     mermaid += f"    {e['from']} --|{e['label']}|--> {e['to']}\n"
@@ -1449,12 +1453,15 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 if (step_num not in yes_jumps and step_num not in no_jumps and not goto_match) and (step_num < len(steps)):
                     edges.append({"from": this_id, "to": f"S{step_num+1}", "label": ""})
             # Mermaid string
+            def safe_label(label):
+                label = label.replace('"', "'")
+                return f'"{label.strip()}"'
             mermaid = "flowchart TD\n"
             for n in nodes:
                 if n["type"] == "decision":
-                    mermaid += f"    {n['id']}{{{{{n['label']}}}}}\n"
+                    mermaid += f"    {n['id']}{{{{{safe_label(n['label'])}}}}}\n"
                 else:
-                    mermaid += f"    {n['id']}[\"{n['label']}\"]\n"
+                    mermaid += f"    {n['id']}[{safe_label(n['label'])}]\n"
             for e in edges:
                 if e["label"]:
                     mermaid += f"    {e['from']} --|{e['label']}|--> {e['to']}\n"
