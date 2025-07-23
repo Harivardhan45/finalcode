@@ -244,29 +244,20 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages to Analyze
                   </label>
-
-                  <div className="space-y-2 max-h-40 overflow-y-auto border border-white/30 rounded-lg p-2 bg-white/50 backdrop-blur-sm">
-                    {pages.map(page => (
-                      <label key={page} className="flex items-center space-x-2 p-2 hover:bg-white/30 rounded cursor-pointer backdrop-blur-sm">
-                        <input
-                          type="checkbox"
-                          checked={selectedPages.includes(page)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedPages([...selectedPages, page]);
-                            } else {
-                              setSelectedPages(selectedPages.filter(p => p !== page));
-                            }
-                          }}
-                          className="rounded border-gray-300 text-confluence-blue focus:ring-confluence-blue"
-                        />
-                        <span className="text-sm text-gray-700">{page}</span>
-                      </label>
-                    ))}
+                  <div className="relative">
+                    <select
+                      value={selectedPages.length === 0 ? '' : selectedPages[0]}
+                      onChange={(e) => setSelectedPages([e.target.value])}
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm"
+                      disabled={!selectedSpace}
+                    >
+                      <option value="">Choose a page...</option>
+                      {pages.map(page => (
+                        <option key={page} value={page}>{page}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {selectedPages.length} page(s) selected
-                  </p>
                 </div>
                <div className="flex items-center space-x-2 mb-2">
                     <input

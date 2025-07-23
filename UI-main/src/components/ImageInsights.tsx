@@ -4,6 +4,7 @@ import { FeatureType, AppMode } from '../App';
 import { apiService } from '../services/api';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 import CustomScrollbar from './CustomScrollbar';
+// Remove: import MultiPageSelectDropdown from './MultiPageSelectDropdown';
 
 interface ImageInsightsProps {
   onClose: () => void;
@@ -598,41 +599,26 @@ ${JSON.stringify(chartData.data, null, 2)}
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages
                   </label>
-                  <div className="space-y-2 max-h-40 overflow-y-auto border border-white/30 rounded-lg p-2 bg-white/50 backdrop-blur-sm">
+                  <div className="relative">
+                    <select
+                      value={selectedPages[0] || ''} // Assuming only one page is selected for now
+                      onChange={(e) => setSelectedPages([e.target.value])}
+                      disabled={!spaceKey || isLoadingPages}
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm disabled:bg-gray-100"
+                    >
+                      <option value="">
+                        {isLoadingPages ? 'Loading pages...' : 'Select a page...'}
+                      </option>
+                      {pages.map(page => (
+                        <option key={page} value={page}>{page}</option>
+                      ))}
+                    </select>
                     {isLoadingPages ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="w-4 h-4 animate-spin text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-500">Loading pages...</span>
-                      </div>
-                    ) : pages.length > 0 ? (
-                      pages.map(page => (
-                        <label key={page} className="flex items-center space-x-2 p-2 hover:bg-white/30 rounded cursor-pointer backdrop-blur-sm">
-                          <input
-                            type="checkbox"
-                            checked={selectedPages.includes(page)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedPages([...selectedPages, page]);
-                              } else {
-                                setSelectedPages(selectedPages.filter(p => p !== page));
-                              }
-                            }}
-                            className="rounded border-gray-300 text-confluence-blue focus:ring-confluence-blue"
-                          />
-                          <span className="text-sm text-gray-700">{page}</span>
-                        </label>
-                      ))
+                      <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
                     ) : (
-                      <div className="text-center py-4">
-                        <span className="text-sm text-gray-500">
-                          {spaceKey ? 'No pages found' : 'Select a space to load pages'}
-                        </span>
-                      </div>
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {selectedPages.length} page(s) selected
-                  </p>
                 </div>
                 {/* Load Images Button */}
                 <button
