@@ -1374,7 +1374,8 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 func_match = re.match(r'def\s+([a-zA-Z0-9_]+)\s*\(', label)
                 if func_match:
                     label = func_match.group(1)
-                label = re.sub(r'[\(\)\[\]\{\}:]', '', label)
+                label = re.sub(r'[^a-zA-Z0-9 _-]', '', label)  # keep only safe characters
+                label = label.replace('\n', ' ').strip()
                 label = label.replace('"', "'")
                 label = label.replace('_', ' ').strip().capitalize()
                 label = re.sub(r'\s+', ' ', label)  # collapse multiple spaces to one
@@ -1414,7 +1415,7 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 elif shape == "([":  # io
                     label = safe_label(n['label'], quoted=False, io=True)
                 elif shape == "[{":  # data
-                    label = safe_label(n['label'], quoted=False, data=True)
+                    label = safe_label(n['label'], quoted=False, data=True).replace(" ", "")
                 elif shape == "[":
                     label = safe_label(n['label'], quoted=True)
                 else:
@@ -1478,7 +1479,8 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 func_match = re.match(r'def\s+([a-zA-Z0-9_]+)\s*\(', label)
                 if func_match:
                     label = func_match.group(1)
-                label = re.sub(r'[\(\)\[\]\{\}:]', '', label)
+                label = re.sub(r'[^a-zA-Z0-9 _-]', '', label)  # keep only safe characters
+                label = label.replace('\n', ' ').strip()
                 label = label.replace('"', "'")
                 label = label.replace('_', ' ').strip().capitalize()
                 label = re.sub(r'\s+', ' ', label)  # collapse multiple spaces to one
