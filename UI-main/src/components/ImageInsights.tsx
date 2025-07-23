@@ -52,6 +52,18 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [isExportingChart, setIsExportingChart] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const chartPreviewRef = useRef<HTMLDivElement>(null);
+  // Listen for UPDATE_CONTEXT messages from parent
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'UPDATE_CONTEXT') {
+        const { spaceKey: newSpaceKey, pageTitle: newPageTitle } = event.data;
+        if (typeof newSpaceKey === 'string') setSpaceKey(newSpaceKey);
+        if (typeof newPageTitle === 'string' && pages.includes(newPageTitle)) setSelectedPages([newPageTitle]);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [pages]);
 
   // Load spaces on component mount
   useEffect(() => {
