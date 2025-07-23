@@ -4,8 +4,6 @@ import { FeatureType, AppMode } from '../App';
 import { apiService } from '../services/api';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 import CustomScrollbar from './CustomScrollbar';
-import mermaid from 'mermaid';
-import FlowchartBuilder from './FlowchartBuilder';
 
 interface ImageInsightsProps {
   onClose: () => void;
@@ -55,11 +53,6 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [showToast, setShowToast] = useState(false);
   const chartPreviewRef = useRef<HTMLDivElement>(null);
 
-  // Add state for flowchart builder
-  const [flowchartData, setFlowchartData] = useState<null | import('../services/api').FlowchartBuilderResponse>(null);
-  const [isLoadingFlowchart, setIsLoadingFlowchart] = useState(false);
-  const [flowchartError, setFlowchartError] = useState<string | null>(null);
-
   // Load spaces on component mount
   useEffect(() => {
     const loadSpaces = async () => {
@@ -103,34 +96,6 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     };
     loadPages();
   }, [spaceKey]);
-
-  // Function to load flowchart for a selected page
-  const loadFlowchart = async (pageTitle: string) => {
-    setIsLoadingFlowchart(true);
-    setFlowchartError(null);
-    try {
-      const response = await apiService.flowchartBuilder({
-        space_key: spaceKey,
-        page_title: pageTitle,
-      });
-      setFlowchartData(response);
-    } catch (err: any) {
-      setFlowchartError(err.message || 'Failed to load flowchart');
-      setFlowchartData(null);
-    } finally {
-      setIsLoadingFlowchart(false);
-    }
-  };
-
-  // When a page is selected, try to load flowchart data
-  useEffect(() => {
-    if (spaceKey && selectedPages.length === 1) {
-      loadFlowchart(selectedPages[0]);
-    } else {
-      setFlowchartData(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceKey, selectedPages]);
 
   const chartTypes = [
     { value: 'bar' as const, label: 'Grouped Bar Chart' },
@@ -677,25 +642,6 @@ ${JSON.stringify(chartData.data, null, 2)}
             </div>
             {/* Middle Column - Images Grid */}
             <div className="xl:col-span-2 space-y-6">
-              {isLoadingFlowchart && (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                  <span>Generating flowchart...</span>
-                </div>
-              )}
-              {flowchartError && (
-                <div className="text-red-600 py-4">{flowchartError}</div>
-              )}
-              {flowchartData && (flowchartData.detected_type === 'code' || flowchartData.detected_type === 'procedural') && flowchartData.mermaid && (
-                <FlowchartBuilder
-                  mermaidCode={flowchartData.mermaid}
-                  detectedType={flowchartData.detected_type}
-                  nodes={flowchartData.nodes}
-                  edges={flowchartData.edges}
-                  rawContent={flowchartData.raw_content}
-                  debug={flowchartData.debug}
-                />
-              )}
               {images.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {images.map(image => (

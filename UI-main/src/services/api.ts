@@ -145,20 +145,6 @@ export interface SaveToConfluenceResponse {
   message?: string;
 }
 
-export interface FlowchartBuilderRequest {
-  space_key: string;
-  page_title: string;
-}
-
-export interface FlowchartBuilderResponse {
-  mermaid: string;
-  nodes: any[];
-  edges: any[];
-  detected_type: string;
-  raw_content: string;
-  debug?: Record<string, any>;
-}
-
 class ApiService {
   private getSelectedApiKey(): string | undefined {
     if (typeof window !== 'undefined' && localStorage.getItem('selectedApiKeyId')) {
@@ -290,13 +276,6 @@ class ApiService {
 
   async saveToConfluence(request: SaveToConfluenceRequest): Promise<SaveToConfluenceResponse> {
     return this.makeRequest<SaveToConfluenceResponse>('/save-to-confluence', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  }
-
-  async flowchartBuilder(request: FlowchartBuilderRequest): Promise<FlowchartBuilderResponse> {
-    return this.makeRequest<FlowchartBuilderResponse>('/flowchart-builder', {
       method: 'POST',
       body: JSON.stringify(request),
     });
