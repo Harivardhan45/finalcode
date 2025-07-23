@@ -76,7 +76,7 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     }
   }, [autoSpaceKey, isSpaceAutoConnected]);
 
-  // Load pages when space key changes
+  // Load pages when space key changes and auto-select page if present in URL
   useEffect(() => {
     const loadPages = async () => {
       if (!spaceKey) {
@@ -87,6 +87,11 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
       try {
         const response = await apiService.getPages(spaceKey);
         setPages(response.pages);
+        // Auto-select page if present in URL
+        const { page } = getConfluenceSpaceAndPageFromUrl();
+        if (page && response.pages.includes(page)) {
+          setSelectedPages([page]);
+        }
       } catch (error) {
         console.error('Failed to load pages:', error);
         setPages([]);

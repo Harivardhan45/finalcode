@@ -79,6 +79,11 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
       setError('');
       const result = await apiService.getPages(selectedSpace);
       setPages(result.pages);
+      // Auto-select page if present in URL
+      const { page } = getConfluenceSpaceAndPageFromUrl();
+      if (page && result.pages.includes(page)) {
+        setCodePage(page);
+      }
     } catch (err) {
       setError('Failed to load pages. Please check your space key.');
       console.error('Error loading pages:', err);

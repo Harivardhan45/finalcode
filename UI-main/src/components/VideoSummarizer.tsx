@@ -82,7 +82,13 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
       setError('');
       const result = await apiService.getPages(selectedSpace);
       setPages(result.pages);
-      setSelectedPages([]); // Reset selected pages when space changes
+      // Auto-select page if present in URL
+      const { page } = getConfluenceSpaceAndPageFromUrl();
+      if (page && result.pages.includes(page)) {
+        setSelectedPages([page]);
+      } else {
+        setSelectedPages([]); // Reset selected pages when space changes
+      }
     } catch (err) {
       setError('Failed to load pages. Please check your space key.');
       console.error('Error loading pages:', err);
