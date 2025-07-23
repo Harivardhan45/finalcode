@@ -1309,6 +1309,7 @@ async def generate_flowchart(request: FlowchartRequest, req: Request):
         page_data = confluence.get_page_by_id(page_id, expand="body.storage")
         raw_html = page_data["body"]["storage"]["value"]
         text_content = clean_html(raw_html)
+        print(f"[DEBUG] Extracted text_content for flowchart:\n{text_content}")
         # Detect content type
         code_pattern = re.compile(r"#\s*type:\s*\w+", re.IGNORECASE)
         step_pattern = re.compile(r"STEP\s*\d+[:：]", re.IGNORECASE)
