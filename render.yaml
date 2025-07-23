@@ -1,8 +1,13 @@
 services:
   - type: web
     name: confluence-ai-assistant
-    env: docker
-    dockerfilePath: ./Dockerfile
+    env: python
+    buildCommand: |
+      cd UI-main/backend
+      pip install -r requirements.txt
+    startCommand: |
+      cd UI-main/backend
+      uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: GENAI_API_KEY_1
         sync: false

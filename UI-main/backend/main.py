@@ -20,124 +20,6 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 import difflib
 import base64
-import graphviz
-# --- BEGIN: Integrated Flowchart Builder Functions ---
-import re
-
-def detect_content_type(text: str):
-    """Detect if content is code with type tags or step-by-step procedure"""
-    lines = text.splitlines()
-    code_indicators = 0
-    step_indicators = 0
-    for line in lines:
-        line_lower = line.lower().strip()
-        if re.search(r'# type:', line):
-            code_indicators += 5
-        if re.search(r'def\s+\w+', line):
-            code_indicators += 3
-        if re.search(r'class\s+\w+', line):
-            code_indicators += 3
-        if re.search(r'#', line):
-            code_indicators += 2
-        if re.search(r'import\s+', line):
-            code_indicators += 1
-        if re.search(r'from\s+', line):
-            code_indicators += 1
-        if re.match(r'^STEP\s+\d+', line, re.IGNORECASE):
-            step_indicators += 5
-        if re.match(r'^\d+[\.\)]', line):
-            step_indicators += 3
-        if re.match(r'^[•·]\s+', line):
-            step_indicators += 2
-        if re.match(r'^[-*]\s+', line):
-            step_indicators += 2
-        if re.search(r'\?\s*(Yes|No|Y|N)', line, re.IGNORECASE):
-            step_indicators += 2
-    if code_indicators > step_indicators:
-        return "code"
-    elif step_indicators > 0:
-        return "procedure"
-    else:
-        return "unknown"
-
-
-def gemini_generate_flowchart_structure(text):
-    import os
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GENAI_API_KEY_1") or os.getenv("GENAI_API_KEY_2")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY or GENAI_API_KEY_1/2 not set in environment.")
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("models/gemini-1.5-flash")
-    prompt = (
-        "You are an expert at extracting flowchart logic from code or pseudocode. "
-        "Given the following content, extract a flowchart structure as JSON with nodes (id, label, type) and edges (from, to, label). "
-        "Types can be: start, end, process, io, decision, predefined, preprocessor, data, off_page, page_connector, comment. "
-        "For decisions, include Yes/No labels on edges. "
-        "Content:\n" + text +
-        "\nRespond ONLY with a JSON object: {nodes: [...], edges: [...]}"
-    )
-    response = model.generate_content(prompt)
-    gemini_text = None
-    if hasattr(response, "text") and isinstance(response.text, str):
-        gemini_text = response.text
-    elif hasattr(response, "candidates"):
-        try:
-            gemini_text = response.candidates[0].content.parts[0].text
-        except Exception:
-            pass
-    import json
-    import re as _re
-    try:
-        if not isinstance(gemini_text, str):
-            gemini_text_str = str(gemini_text) if gemini_text is not None else ""
-        else:
-            gemini_text_str = gemini_text
-        gemini_text_str = gemini_text_str.strip()
-        cleaned = _re.sub(r"^```json\s*|```$", "", gemini_text_str, flags=_re.MULTILINE)
-        match = _re.search(r'\{[\s\S]*\}', cleaned)
-    except Exception as e:
-        raise ValueError(f"Could not clean Gemini response: {e}\nRaw: {gemini_text}")
-    if not match:
-        raise ValueError("Gemini did not return a valid JSON structure.")
-    try:
-        return json.loads(match.group(0))
-    except Exception as e:
-        raise ValueError(f"Failed to parse Gemini JSON: {e}\nRaw: {cleaned}")
-
-
-def build_flowchart_from_gemini(flowchart):
-    dot = graphviz.Digraph(format="png", engine="dot", graph_attr={
-        "dpi": "300",
-        "nodesep": "0.5",
-        "ranksep": "0.5",
-        "splines": "true",
-        "concentrate": "false"
-    })
-    style_map = {
-        "start": ("oval", "#a7f3d0"),
-        "end": ("oval", "#fca5a5"),
-        "process": ("box", "#bfdbfe"),
-        "predefined": ("rect", "#c7d2fe"),
-        "decision": ("diamond", "#fde68a"),
-        "io": ("parallelogram", "#d8b4fe"),
-        "data": ("cylinder", "#bbf7d0"),
-        "preprocessor": ("trapezium", "#ddd6fe"),
-        "off_page": ("box", "#a5f3fc"),
-        "page_connector": ("circle", "#fbcfe8"),
-        "comment": ("note", "#f3f4f6")
-    }
-    for node in flowchart["nodes"]:
-        shape, color = style_map.get(node.get("type", "process"), ("box", "#ffffff"))
-        if node.get("type") == "page_connector":
-            dot.node(str(node["id"]), node["label"], shape=shape, fillcolor=color, style="filled", fontname="Segoe UI", fontsize="14", width="0.7", height="0.7", fixedsize="true")
-        else:
-            dot.node(str(node["id"]), node["label"], shape=shape, fillcolor=color, style="filled", fontname="Segoe UI", fontsize="14")
-    for edge in flowchart["edges"]:
-        label = edge.get("label", "")
-        dot.edge(str(edge["from"]), str(edge["to"]), label=label, arrowsize="0.5", fontname="Segoe UI", fontsize="12")
-    return dot
-# --- END: Integrated Flowchart Builder Functions ---
 
 # Load environment variables
 load_dotenv()
@@ -235,6 +117,18 @@ class AnalyzeGoalResponse(BaseModel):
     tools: list[str]
     pages: list[str]
     reasoning: str
+
+class FlowchartBuilderRequest(BaseModel):
+    space_key: str
+    page_title: str
+
+class FlowchartBuilderResponse(BaseModel):
+    mermaid: str
+    nodes: list
+    edges: list
+    detected_type: str
+    raw_content: str
+    debug: Optional[dict] = None
 
 # Helper functions
 def remove_emojis(text):
@@ -1397,6 +1291,97 @@ async def create_chart(request: ChartRequest, req: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/flowchart-builder", response_model=FlowchartBuilderResponse)
+async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
+    """Generate a Mermaid.js flowchart from code or procedural instructions in a Confluence page."""
+    try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
+        confluence = init_confluence()
+        space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
+
+        # Fetch page content
+        pages = confluence.get_all_pages_from_space(space=space_key, start=0, limit=100)
+        page = next((p for p in pages if p["title"] == request.page_title), None)
+        if not page:
+            raise HTTPException(status_code=404, detail=f"Page '{request.page_title}' not found")
+        page_id = page["id"]
+        page_data = confluence.get_page_by_id(page_id, expand="body.storage")
+        raw_html = page_data["body"]["storage"]["value"]
+        text_content = clean_html(raw_html)
+
+        # Try to detect code with # type: tags
+        code_blocks = re.findall(r"#\s*type:\s*([a-zA-Z0-9_\-]+).*", text_content)
+        steps = re.findall(r"STEP\s*\d+\s*[:\-]\s*(.*)", text_content, re.IGNORECASE)
+        nodes = []
+        edges = []
+        detected_type = None
+        mermaid = ""
+        debug = {}
+
+        if code_blocks:
+            detected_type = "code"
+            # Parse code blocks and build a simple flowchart
+            lines = text_content.splitlines()
+            node_ids = []
+            for i, line in enumerate(lines):
+                m = re.match(r"#\s*type:\s*([a-zA-Z0-9_\-]+)(.*)", line)
+                if m:
+                    node_type = m.group(1).lower()
+                    label = m.group(2).strip() or node_type.capitalize()
+                    node_id = f"N{i}"
+                    nodes.append({"id": node_id, "type": node_type, "label": label})
+                    node_ids.append(node_id)
+            # Connect nodes sequentially
+            for i in range(len(node_ids)-1):
+                edges.append({"from": node_ids[i], "to": node_ids[i+1], "label": ""})
+            # Mermaid string
+            mermaid = "flowchart TD\n"
+            for n in nodes:
+                shape = "((" if n["type"] == "start" else "{{" if n["type"] == "process" else "{[" if n["type"] == "data" else "{?" if n["type"] == "decision" else "["
+                endshape = "))" if n["type"] == "start" else "}}" if n["type"] == "process" else "]}" if n["type"] == "data" else "?}" if n["type"] == "decision" else "]"
+                mermaid += f"    {n['id']}{shape}{n['label']}{endshape}\n"
+            for e in edges:
+                mermaid += f"    {e['from']} --> {e['to']}\n"
+            debug['code_blocks'] = code_blocks
+        elif steps:
+            detected_type = "procedural"
+            # Each step is a process node
+            for i, step in enumerate(steps):
+                node_id = f"S{i}"
+                nodes.append({"id": node_id, "type": "process", "label": step.strip()})
+            for i in range(len(nodes)-1):
+                edges.append({"from": nodes[i]['id'], "to": nodes[i+1]['id'], "label": ""})
+            mermaid = "flowchart TD\n"
+            for n in nodes:
+                mermaid += f"    {n['id']}{{{{{n['label']}}}}}\n"
+            for e in edges:
+                mermaid += f"    {e['from']} --> {e['to']}\n"
+            debug['steps'] = steps
+        else:
+            detected_type = "ai"
+            # Fallback to Gemini AI
+            ai_prompt = (
+                "Given the following Confluence page content, extract the logic as a flowchart in Mermaid.js format. "
+                "Use distinct node types for start, process, decision, and data. "
+                "Return only the Mermaid code, no explanation.\n\n"
+                f"Content:\n{text_content}"
+            )
+            response = ai_model.generate_content(ai_prompt)
+            mermaid = response.text.strip()
+            debug['ai_response'] = mermaid
+        return FlowchartBuilderResponse(
+            mermaid=mermaid,
+            nodes=nodes,
+            edges=edges,
+            detected_type=detected_type,
+            raw_content=text_content,
+            debug=debug
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/export")
 async def export_content(request: ExportRequest, req: Request):
     """Export content in various formats"""
@@ -1513,43 +1498,6 @@ async def analyze_goal(request: AnalyzeGoalRequest, req: Request):
 async def test_endpoint():
     """Test endpoint to verify backend is working"""
     return {"message": "Backend is working", "status": "ok"}
-
-@app.post("/flowchart-builder")
-async def flowchart_builder(request: ImageRequest, req: Request):
-    """Detects code/procedural instructions and generates a flowchart if present, else signals to use image insights."""
-    try:
-        confluence = init_confluence()
-        space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
-        # Get page content
-        pages = confluence.get_all_pages_from_space(space=space_key, start=0, limit=100)
-        page = next((p for p in pages if p["title"].strip().lower() == request.page_title.strip().lower()), None)
-        if not page:
-            raise HTTPException(status_code=404, detail=f"Page '{request.page_title}' not found")
-        page_id = page["id"]
-        html_content = confluence.get_page_by_id(page_id=page_id, expand="body.storage")["body"]["storage"]["value"]
-        # Extract text
-        from bs4 import BeautifulSoup
-        text_content = BeautifulSoup(html_content, "html.parser").get_text(separator="\n")
-        # Detect content type
-        content_type = detect_content_type(text_content)
-        if content_type in ("code", "procedure"):
-            # Use Gemini to generate flowchart structure
-            flowchart = gemini_generate_flowchart_structure(text_content)
-            dot = build_flowchart_from_gemini(flowchart)
-            # Render to PNG in memory
-            img_bytes = dot.pipe(format="png")
-            import base64
-            img_b64 = base64.b64encode(img_bytes).decode()
-            return {
-                "type": "flowchart",
-                "image": img_b64,
-                "debug_content": text_content,
-                "content_type": content_type
-            }
-        else:
-            return {"type": "image"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 def get_actual_api_key_from_identifier(identifier: str) -> str:
     if identifier and identifier.startswith('GENAI_API_KEY_'):

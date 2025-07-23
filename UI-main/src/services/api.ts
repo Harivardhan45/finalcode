@@ -145,6 +145,20 @@ export interface SaveToConfluenceResponse {
   message?: string;
 }
 
+export interface FlowchartBuilderRequest {
+  space_key: string;
+  page_title: string;
+}
+
+export interface FlowchartBuilderResponse {
+  mermaid: string;
+  nodes: any[];
+  edges: any[];
+  detected_type: string;
+  raw_content: string;
+  debug?: Record<string, any>;
+}
+
 class ApiService {
   private getSelectedApiKey(): string | undefined {
     if (typeof window !== 'undefined' && localStorage.getItem('selectedApiKeyId')) {
@@ -281,10 +295,10 @@ class ApiService {
     });
   }
 
-  async flowchartBuilder(spaceKey: string, pageTitle: string): Promise<any> {
-    return this.makeRequest<any>('/flowchart-builder', {
+  async flowchartBuilder(request: FlowchartBuilderRequest): Promise<FlowchartBuilderResponse> {
+    return this.makeRequest<FlowchartBuilderResponse>('/flowchart-builder', {
       method: 'POST',
-      body: JSON.stringify({ space_key: spaceKey, page_title: pageTitle, image_url: '' })
+      body: JSON.stringify(request),
     });
   }
 }
