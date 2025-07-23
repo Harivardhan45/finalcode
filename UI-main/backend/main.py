@@ -1493,6 +1493,8 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
             for n in nodes:
                 if n["type"] == "decision":
                     label = safe_label(n['label'], quoted=False)
+                    # Sanitize label for Mermaid decision shape
+                    label = label.replace('{', '').replace('}', '').replace('--', '-').replace('"', "'")
                     mermaid += f"    {n['id']}{{{{{label}}}}}\n"
                 else:
                     # Only quote for standard nodes
