@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Image, Download, Save, X, ChevronDown, Loader2, MessageSquare, BarChart3, Search, Video, Code, TrendingUp, TestTube, Eye } from 'lucide-react';
+import { Image, Download, Save, X, ChevronDown, Loader2, MessageSquare, BarChart3, Search, Video, Code, TrendingUp, TestTube, Eye, ChevronUp, Check } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService } from '../services/api';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 import CustomScrollbar from './CustomScrollbar';
-// Remove: import MultiPageSelectDropdown from './MultiPageSelectDropdown';
 
 interface ImageInsightsProps {
   onClose: () => void;
@@ -53,6 +52,7 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [isExportingChart, setIsExportingChart] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const chartPreviewRef = useRef<HTMLDivElement>(null);
+  const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
 
   // Load spaces on component mount
   useEffect(() => {
@@ -508,6 +508,20 @@ ${JSON.stringify(chartData.data, null, 2)}
     }
   };
 
+  const handlePageSelection = (page: string) => {
+    setSelectedPages(prev =>
+      prev.includes(page)
+        ? prev.filter(p => p !== page)
+        : [...prev, page]
+    );
+  };
+  const selectAllPages = () => {
+    setSelectedPages(pages);
+  };
+  const clearAllPages = () => {
+    setSelectedPages([]);
+  };
+
   return (
     <div className="fixed inset-0 bg-white flex items-center justify-center z-40 p-4">
       <div className="bg-white/80 backdrop-blur-xl border-2 border-[#DFE1E6] rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
@@ -594,29 +608,87 @@ ${JSON.stringify(chartData.data, null, 2)}
                     )}
                   </div>
                 </div>
-                {/* Page Selection */}
+                {/* Page Selection - Aesthetic Multiselect */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Pages
+                    Select Pages ({selectedPages.length} selected)
                   </label>
                   <div className="relative">
-                    <select
-                      value={selectedPages[0] || ''} // Assuming only one page is selected for now
-                      onChange={(e) => setSelectedPages([e.target.value])}
-                      disabled={!spaceKey || isLoadingPages}
-                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm disabled:bg-gray-100"
+                    <button
+                      type="button"
+                      onClick={() => setIsPageDropdownOpen(!isPageDropdownOpen)}
+                      disabled={!spaceKey}
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
-                      <option value="">
-                        {isLoadingPages ? 'Loading pages...' : 'Select a page...'}
-                      </option>
-                      {pages.map(page => (
-                        <option key={page} value={page}>{page}</option>
-                      ))}
-                    </select>
-                    {isLoadingPages ? (
-                      <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
-                    ) : (
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                      <span className={selectedPages.length === 0 ? 'text-gray-500' : 'text-gray-700'}>
+                        {selectedPages.length === 0
+                          ? 'Choose pages...'
+                          : selectedPages.length === 1
+                            ? selectedPages[0]
+                            : `${selectedPages.length} pages selected`
+                        }
+                      </span>
+                      {isPageDropdownOpen ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {/* Dropdown */}
+                    {isPageDropdownOpen && spaceKey && (
+                      <div className="absolute z-10 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                        {/* Header with Select All/Clear All */}
+                        <div className="p-3 border-b border-white/20 bg-white/50">
+                          <div className="flex justify-between items-center">
+                            <button
+                              onClick={selectAllPages}
+                              className="text-sm text-confluence-blue hover:text-confluence-blue/80 font-medium"
+                            >
+                              Select All
+                            </button>
+                            <button
+                              onClick={clearAllPages}
+                              className="text-sm text-gray-500 hover:text-gray-700 font-medium"
+                            >
+                              Clear All
+                            </button>
+                          </div>
+                        </div>
+                        {/* Page List */}
+                        <div className="max-h-48 overflow-y-auto">
+                          {pages.length === 0 ? (
+                            <div className="p-3 text-gray-500 text-sm text-center">
+                              No pages found in this space
+                            </div>
+                          ) : (
+                            pages.map(page => (
+                              <label
+                                key={page}
+                                className="flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0"
+                              >
+                                <div className="relative">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedPages.includes(page)}
+                                    onChange={() => handlePageSelection(page)}
+                                    className="sr-only"
+                                  />
+                                  <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
+                                    selectedPages.includes(page)
+                                      ? 'bg-confluence-blue border-confluence-blue'
+                                      : 'border-gray-300 hover:border-confluence-blue/50'
+                                  }`}>
+                                    {selectedPages.includes(page) && (
+                                      <Check className="w-3 h-3 text-white" />
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="text-sm text-gray-700 flex-1">{page}</span>
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
