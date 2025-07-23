@@ -1391,14 +1391,14 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
             mermaid = "flowchart TD\n"
             for n in nodes:
                 shape = (
-                    "((" if n["type"] == "start" else
-                    "([" if n["type"] == "io" else
+                    "((\" if n["type"] == "start" else
+                    "([\" if n["type"] == "io" else
                     "[[" if n["type"] == "preprocessor" else
                     "[{" if n["type"] == "data" else
                     "{{" if n["type"] == "process" else
                     "{?" if n["type"] == "decision" else
-                    "([" if n["type"] == "predefined" else
-                    "((" if n["type"] == "end" else
+                    "([\" if n["type"] == "predefined" else
+                    "((\" if n["type"] == "end" else
                     "["
                 )
                 endshape = (
@@ -1412,14 +1412,17 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                     "))" if n["type"] == "end" else
                     "]"
                 )
-                # Use special logic for subroutine ([[ ... ]])
                 if shape == "[[":
                     label = safe_label(n['label'], quoted=False, subroutine=True)
+                elif shape == "([":  # io
+                    label = safe_label(n['label'], quoted=False, io=True)
+                elif shape == "[{":  # data
+                    label = safe_label(n['label'], quoted=False, data=True)
                 elif shape == "[":
                     label = safe_label(n['label'], quoted=True)
                 else:
                     label = safe_label(n['label'], quoted=False)
-                mermaid += f"    {n['id']}{shape}{label}{endshape}\n"
+                mermaid += f"    {n['id']}{shape}{label}{endshape}\n"   
             for e in edges:
                 if e["label"]:
                     mermaid += f"    {e['from']} --|{e['label']}|--> {e['to']}\n"
@@ -1474,13 +1477,17 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 if (step_num not in yes_jumps and step_num not in no_jumps and not goto_match) and (step_num < len(steps)):
                     edges.append({"from": this_id, "to": f"S{step_num+1}", "label": ""})
             # Mermaid string
-            def safe_label(label, quoted=True):
+            def safe_label(label, quoted=True, subroutine=False, io=False, data=False):
                 func_match = re.match(r'def\s+([a-zA-Z0-9_]+)\s*\(', label)
                 if func_match:
                     label = func_match.group(1)
                 label = re.sub(r'[\(\)\[\]\{\}:]', '', label)
                 label = label.replace('"', "'")
                 label = label.replace('_', ' ').strip().capitalize()
+                label = re.sub(r'\s+', ' ', label)  # collapse multiple spaces to one
+                if subroutine or io or data:
+                    # For subroutine ([[ ... ]]), io ([ ... ]), and data ([{ ... }]) nodes, use a single word (no spaces)
+                    return re.sub(r'[^a-zA-Z0-9]', '', label)
                 if quoted:
                     return f'"{label}"'
                 else:
