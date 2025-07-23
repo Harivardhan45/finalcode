@@ -1371,9 +1371,16 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                     edges.append({"from": node_ids[i], "to": node_ids[i+1], "label": ""})
             # Mermaid string
             def safe_label(label):
-                # Remove problematic characters and always wrap in double quotes
+                # Extract function name if label is a function signature
+                func_match = re.match(r'def\s+([a-zA-Z0-9_]+)\s*\(', label)
+                if func_match:
+                    label = func_match.group(1)
+                # Remove problematic characters
+                label = re.sub(r'[\(\)\[\]\{\}:]', '', label)
                 label = label.replace('"', "'")  # replace double quotes with single
-                return f'"{label.strip()}"'
+                # Optionally, make it more human-readable
+                label = label.replace('_', ' ').strip().capitalize()
+                return f'"{label}"'
             mermaid = "flowchart TD\n"
             for n in nodes:
                 shape = (
@@ -1454,8 +1461,13 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                     edges.append({"from": this_id, "to": f"S{step_num+1}", "label": ""})
             # Mermaid string
             def safe_label(label):
+                func_match = re.match(r'def\s+([a-zA-Z0-9_]+)\s*\(', label)
+                if func_match:
+                    label = func_match.group(1)
+                label = re.sub(r'[\(\)\[\]\{\}:]', '', label)
                 label = label.replace('"', "'")
-                return f'"{label.strip()}"'
+                label = label.replace('_', ' ').strip().capitalize()
+                return f'"{label}"'
             mermaid = "flowchart TD\n"
             for n in nodes:
                 if n["type"] == "decision":
