@@ -13,17 +13,12 @@ interface FlowchartBuilderProps {
 const FlowchartBuilder: React.FC<FlowchartBuilderProps> = ({
   mermaidCode,
   detectedType,
-  nodes,
-  edges,
-  rawContent,
-  debug,
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (chartRef.current && mermaidCode) {
       mermaid.initialize({ startOnLoad: false, theme: 'default' });
-      // Use the Promise-based API for mermaid.render
       (async () => {
         const { svg } = await mermaid.render('mermaid-flowchart', mermaidCode);
         if (chartRef.current) {
@@ -76,26 +71,6 @@ const FlowchartBuilder: React.FC<FlowchartBuilderProps> = ({
         </button>
       </div>
       <div ref={chartRef} className="w-full overflow-x-auto flex justify-center items-center min-h-[300px] bg-white/60 rounded-lg border border-white/10 p-4" />
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h4 className="font-semibold text-gray-800 mb-2">Nodes</h4>
-          <pre className="bg-gray-100 rounded p-2 text-xs overflow-x-auto max-h-40">{JSON.stringify(nodes, null, 2)}</pre>
-        </div>
-        <div>
-          <h4 className="font-semibold text-gray-800 mb-2">Edges</h4>
-          <pre className="bg-gray-100 rounded p-2 text-xs overflow-x-auto max-h-40">{JSON.stringify(edges, null, 2)}</pre>
-        </div>
-      </div>
-      <div className="mt-6">
-        <h4 className="font-semibold text-gray-800 mb-2">Raw Content</h4>
-        <pre className="bg-gray-50 rounded p-2 text-xs overflow-x-auto max-h-32">{rawContent}</pre>
-      </div>
-      {debug && (
-        <div className="mt-6">
-          <h4 className="font-semibold text-gray-800 mb-2">Debug Info</h4>
-          <pre className="bg-yellow-50 rounded p-2 text-xs overflow-x-auto max-h-32">{JSON.stringify(debug, null, 2)}</pre>
-        </div>
-      )}
     </div>
   );
 };

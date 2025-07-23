@@ -1322,72 +1322,132 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
 
         if code_blocks:
             detected_type = "code"
-            # Parse code blocks and build a simple flowchart
+            # Improved: Parse code blocks and build expressive flowchart
             lines = text_content.splitlines()
+            nodes = []
             node_ids = []
+            node_types = []
+            node_labels = []
+            node_map = {}
+            edges = []
+            last_node_id = None
+            # Parse nodes
             for i, line in enumerate(lines):
-                m = re.match(r"#\s*type:\s*([a-zA-Z0-9_\-]+)(.*)", line)
+                m = re.match(r"type:\s*([a-zA-Z0-9_\-]+)", line.strip(), re.IGNORECASE)
                 if m:
                     node_type = m.group(1).lower()
-                    label = m.group(2).strip() or node_type.capitalize()
+                    # Next non-empty line is the function or data label
+                    label = None
+                    for j in range(i+1, min(i+4, len(lines))):
+                        l2 = lines[j].strip()
+                        if l2 and not l2.lower().startswith('type:'):
+                            label = l2
+                            break
                     node_id = f"N{i}"
-                    nodes.append({"id": node_id, "type": node_type, "label": label})
+                    nodes.append({"id": node_id, "type": node_type, "label": label or node_type.capitalize()})
+                    node_map[label or node_type.capitalize()] = node_id
                     node_ids.append(node_id)
-            # Connect nodes sequentially
+                    node_types.append(node_type)
+                    node_labels.append(label or node_type.capitalize())
+                    last_node_id = node_id
+            # Build edges based on YES/NO and function calls
+            for i, line in enumerate(lines):
+                # YES/NO branches
+                yes_match = re.match(r"YES:\s*([a-zA-Z0-9_]+)", line.strip(), re.IGNORECASE)
+                no_match = re.match(r"NO:\s*([a-zA-Z0-9_]+)", line.strip(), re.IGNORECASE)
+                if yes_match and last_node_id:
+                    target_label = yes_match.group(1)
+                    target_id = node_map.get(f"def {target_label}(): pass", node_map.get(target_label))
+                    if target_id:
+                        edges.append({"from": last_node_id, "to": target_id, "label": "Yes"})
+                if no_match and last_node_id:
+                    target_label = no_match.group(1)
+                    target_id = node_map.get(f"def {target_label}(): pass", node_map.get(target_label))
+                    if target_id:
+                        edges.append({"from": last_node_id, "to": target_id, "label": "No"})
+            # Sequential edges for non-branching nodes
             for i in range(len(node_ids)-1):
-                edges.append({"from": node_ids[i], "to": node_ids[i+1], "label": ""})
+                if not any(e['from'] == node_ids[i] for e in edges):
+                    edges.append({"from": node_ids[i], "to": node_ids[i+1], "label": ""})
             # Mermaid string
             mermaid = "flowchart TD\n"
             for n in nodes:
-                shape = "((" if n["type"] == "start" else "{{" if n["type"] == "process" else "{[" if n["type"] == "data" else "{?" if n["type"] == "decision" else "["
-                endshape = "))" if n["type"] == "start" else "}}" if n["type"] == "process" else "]}" if n["type"] == "data" else "?}" if n["type"] == "decision" else "]"
+                shape = (
+                    "((" if n["type"] == "start" else
+                    "([" if n["type"] == "io" else
+                    "[[" if n["type"] == "preprocessor" else
+                    "[{" if n["type"] == "data" else
+                    "{{" if n["type"] == "process" else
+                    "{?" if n["type"] == "decision" else
+                    "([" if n["type"] == "predefined" else
+                    "((" if n["type"] == "end" else
+                    "["
+                )
+                endshape = (
+                    "))" if n["type"] == "start" else
+                    ")]" if n["type"] == "io" else
+                    "]]" if n["type"] == "preprocessor" else
+                    "}]" if n["type"] == "data" else
+                    "}}" if n["type"] == "process" else
+                    "?}" if n["type"] == "decision" else
+                    ")]" if n["type"] == "predefined" else
+                    "))" if n["type"] == "end" else
+                    "]"
+                )
                 mermaid += f"    {n['id']}{shape}{n['label']}{endshape}\n"
             for e in edges:
-                mermaid += f"    {e['from']} --> {e['to']}\n"
+                if e["label"]:
+                    mermaid += f"    {e['from']} --|{e['label']}|--> {e['to']}\n"
+                else:
+                    mermaid += f"    {e['from']} --> {e['to']}\n"
             debug['code_blocks'] = code_blocks
+            debug['edges'] = edges
         elif steps:
             detected_type = "procedural"
-            # Improved: Parse steps and handle Yes/No/Go to STEP N logic
+            # Improved: Parse steps and handle Yes/No/Go to STEP N logic, even if on separate lines
             step_map = {}
             step_ids = []
+            yes_jumps = {}
+            no_jumps = {}
             for i, step in enumerate(steps):
                 step_num = i + 1
                 node_id = f"S{step_num}"
                 step_map[step_num] = {"id": node_id, "label": step.strip(), "raw": step}
                 step_ids.append(node_id)
+                # Look for Yes/No: Go to STEP N on this or next lines
+                yes_match = re.search(r"Yes: Go to STEP (\d+)", step, re.IGNORECASE)
+                no_match = re.search(r"No: Go to STEP (\d+)", step, re.IGNORECASE)
+                if yes_match:
+                    yes_jumps[step_num] = int(yes_match.group(1))
+                if no_match:
+                    no_jumps[step_num] = int(no_match.group(1))
             # Build nodes
             nodes = [{"id": v["id"], "type": "process", "label": v["label"]} for v in step_map.values()]
-            # Build edges and handle decisions
-            edges = []
-            jump_map = {}  # step_num -> list of (label, target_step_num)
+            # Mark decision nodes
             for i, step in enumerate(steps):
                 step_num = i + 1
-                # Detect decision (e.g., 'Is ...?')
                 if re.search(r"\bIs .+\?", step, re.IGNORECASE):
-                    # Look for Yes/No: Go to STEP N in subsequent steps or in the same step
-                    yes_match = re.search(r"Yes: Go to STEP (\d+)", step, re.IGNORECASE)
-                    no_match = re.search(r"No: Go to STEP (\d+)", step, re.IGNORECASE)
-                    if yes_match:
-                        target = int(yes_match.group(1))
-                        edges.append({"from": f"S{step_num}", "to": f"S{target}", "label": "Yes"})
-                        jump_map.setdefault(step_num, []).append(("Yes", target))
-                    if no_match:
-                        target = int(no_match.group(1))
-                        edges.append({"from": f"S{step_num}", "to": f"S{target}", "label": "No"})
-                        jump_map.setdefault(step_num, []).append(("No", target))
-                    # Mark this node as a decision
                     for n in nodes:
                         if n["id"] == f"S{step_num}":
                             n["type"] = "decision"
-                # Detect Go to STEP N (unlabeled)
+            # Build edges
+            edges = []
+            for i, step in enumerate(steps):
+                step_num = i + 1
+                this_id = f"S{step_num}"
+                # Decision edges
+                if step_num in yes_jumps:
+                    edges.append({"from": this_id, "to": f"S{yes_jumps[step_num]}", "label": "Yes"})
+                if step_num in no_jumps:
+                    edges.append({"from": this_id, "to": f"S{no_jumps[step_num]}", "label": "No"})
+                # Go to STEP N (unlabeled)
                 goto_match = re.search(r"Go to STEP (\d+)", step, re.IGNORECASE)
                 if goto_match and not re.search(r"Yes:|No:", step, re.IGNORECASE):
                     target = int(goto_match.group(1))
-                    edges.append({"from": f"S{step_num}", "to": f"S{target}", "label": ""})
-                    jump_map.setdefault(step_num, []).append(("", target))
+                    edges.append({"from": this_id, "to": f"S{target}", "label": ""})
                 # Default: connect to next step if not a jump/decision
-                if (step_num not in jump_map) and (step_num < len(steps)):
-                    edges.append({"from": f"S{step_num}", "to": f"S{step_num+1}", "label": ""})
+                if (step_num not in yes_jumps and step_num not in no_jumps and not goto_match) and (step_num < len(steps)):
+                    edges.append({"from": this_id, "to": f"S{step_num+1}", "label": ""})
             # Mermaid string
             mermaid = "flowchart TD\n"
             for n in nodes:
