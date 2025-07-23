@@ -1370,23 +1370,20 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 if not any(e['from'] == node_ids[i] for e in edges):
                     edges.append({"from": node_ids[i], "to": node_ids[i+1], "label": ""})
             # Mermaid string
-            def safe_label(label, quoted=True, subroutine=False):
-                # Extract function name if label is a function signature
+            def safe_label(label, quoted=True, subroutine=False, io=False, data=False):
                 func_match = re.match(r'def\s+([a-zA-Z0-9_]+)\s*\(', label)
                 if func_match:
                     label = func_match.group(1)
-                # Remove problematic characters
                 label = re.sub(r'[\(\)\[\]\{\}:]', '', label)
-                label = label.replace('"', "'")  # replace double quotes with single
-                # Optionally, make it more human-readable
+                label = label.replace('"', "'")
                 label = label.replace('_', ' ').strip().capitalize()
-                if subroutine:
-                    # For subroutine ([[ ... ]]) nodes, use a single word (no spaces)
+                label = re.sub(r'\s+', ' ', label)  # collapse multiple spaces to one
+                if subroutine or io or data:
+                    # For subroutine ([[ ... ]]), io ([ ... ]), and data ([{ ... }]) nodes, use a single word (no spaces)
                     return re.sub(r'[^a-zA-Z0-9]', '', label)
                 if quoted:
                     return f'"{label}"'
                 else:
-                    # For special shapes, only allow alphanumeric and spaces
                     return re.sub(r'[^a-zA-Z0-9 ]', '', label)
             mermaid = "flowchart TD\n"
             for n in nodes:
