@@ -84,9 +84,16 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
   }, [selectedSpace]);
 
   // Sync "Select All" checkbox state
+
+  // Only auto-select page from URL if no page is already selected
   useEffect(() => {
-    setSelectedPages(pages.length > 0 && selectedPages.length === pages.length ? [...pages] : []);
-  }, [selectedPages, pages]);
+    if (pages.length > 0 && selectedPages.length === 0) {
+      const { page } = getConfluenceSpaceAndPageFromUrl();
+      if (page && pages.includes(page)) {
+        setSelectedPages([page]);
+      }
+    }
+  }, [pages, selectedPages]);
 
   const loadSpaces = async () => {
     try {
@@ -336,15 +343,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                     )}
                   </div>
                 </div>
-               <div className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedPages.length === pages.length}
-                      onChange={toggleSelectAllPages}
-                      className="rounded border-gray-300 text-confluence-blue focus:ring-confluence-blue"
-                    />
-                    <span className="text-sm text-gray-700 font-medium">Select All Pages</span>
-                </div>
+               {/* Removed duplicate Select All Pages checkbox below dropdown */}
                 <div className="h-4" />
                 {/* Query Input */}
                 <div className="mb-4">
