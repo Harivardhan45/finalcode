@@ -1371,21 +1371,20 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                     edges.append({"from": node_ids[i], "to": node_ids[i+1], "label": ""})
             # Mermaid string
             def safe_label(label, quoted=True, subroutine=False, io=False, data=False):
-                func_match = re.match(r'def\s+([a-zA-Z0-9_]+)\s*\(', label)
-                if func_match:
-                    label = func_match.group(1)
-                label = re.sub(r'[^a-zA-Z0-9 _-]', '', label)  # keep only safe characters
+                import re
+                label = str(label)  # ensure it's a string
+                label = re.sub(r'[^\w\s-]', '', label)  # Remove special characters (keep letters, numbers, _, -, space)
                 label = label.replace('\n', ' ').strip()
-                label = label.replace('"', "'")
-                label = label.replace('_', ' ').strip().capitalize()
-                label = re.sub(r'\s+', ' ', label)  # collapse multiple spaces to one
+                
+                # For data, subroutine, io nodes – remove spaces
                 if subroutine or io or data:
-                    # For subroutine ([[ ... ]]), io ([ ... ]), and data ([{ ... }]) nodes, use a single word (no spaces)
-                    return re.sub(r'[^a-zA-Z0-9]', '', label)
+                    label = re.sub(r'\s+', '', label)
+                else:
+                    label = re.sub(r'\s+', ' ', label)
+
                 if quoted:
                     return f'"{label}"'
-                else:
-                    return re.sub(r'[^a-zA-Z0-9 ]', '', label)
+                return label
             mermaid = "flowchart TD\n"
             for n in nodes:
                 shape = (
@@ -1415,7 +1414,7 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 elif shape == "([":  # io
                     label = safe_label(n['label'], quoted=False, io=True)
                 elif shape == "[{":  # data
-                    label = safe_label(n['label'], quoted=False, data=True).replace(" ", "")
+                    label = re.sub(r'[^\w]', '', safe_label(n['label'], quoted=False, data=True))
                 elif shape == "[":
                     label = safe_label(n['label'], quoted=True)
                 else:
@@ -1476,21 +1475,20 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                     edges.append({"from": this_id, "to": f"S{step_num+1}", "label": ""})
             # Mermaid string
             def safe_label(label, quoted=True, subroutine=False, io=False, data=False):
-                func_match = re.match(r'def\s+([a-zA-Z0-9_]+)\s*\(', label)
-                if func_match:
-                    label = func_match.group(1)
-                label = re.sub(r'[^a-zA-Z0-9 _-]', '', label)  # keep only safe characters
+                import re
+                label = str(label)  # ensure it's a string
+                label = re.sub(r'[^\w\s-]', '', label)  # Remove special characters (keep letters, numbers, _, -, space)
                 label = label.replace('\n', ' ').strip()
-                label = label.replace('"', "'")
-                label = label.replace('_', ' ').strip().capitalize()
-                label = re.sub(r'\s+', ' ', label)  # collapse multiple spaces to one
+                
+                # For data, subroutine, io nodes – remove spaces
                 if subroutine or io or data:
-                    # For subroutine ([[ ... ]]), io ([ ... ]), and data ([{ ... }]) nodes, use a single word (no spaces)
-                    return re.sub(r'[^a-zA-Z0-9]', '', label)
+                    label = re.sub(r'\s+', '', label)
+                else:
+                    label = re.sub(r'\s+', ' ', label)
+
                 if quoted:
                     return f'"{label}"'
-                else:
-                    return re.sub(r'[^a-zA-Z0-9 ]', '', label)
+                return label
             mermaid = "flowchart TD\n"
             for n in nodes:
                 if n["type"] == "decision":
