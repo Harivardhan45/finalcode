@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Image, Download, Save, X, ChevronDown, Loader2, MessageSquare, BarChart3, Search, Video, Code, TrendingUp, TestTube, Eye, Zap } from 'lucide-react';
+import { Image, Download, Save, X, ChevronDown, Loader2, MessageSquare, BarChart3, Search, Video, Code, TrendingUp, TestTube, Eye } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService } from '../services/api';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
@@ -146,21 +146,19 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     }
   };
 
+  // Analyze image and set summary
   const analyzeImage = async (imageId: string) => {
     setIsAnalyzing(imageId);
-    
     try {
       const image = images.find(img => img.id === imageId);
       if (!image || !image.pageTitle) {
         throw new Error('Image not found or missing page title');
       }
-      
       const response = await apiService.imageSummary({
         space_key: spaceKey,
         page_title: image.pageTitle,
         image_url: image.url
       });
-      
       setImages(prev => prev.map(img =>
         img.id === imageId
           ? { ...img, summary: response.summary }
@@ -168,7 +166,6 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
       ));
     } catch (error) {
       console.error('Failed to analyze image:', error);
-      // Fallback to sample summary
       setImages(prev => prev.map(img =>
         img.id === imageId
           ? {
@@ -181,6 +178,18 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
       setIsAnalyzing('');
     }
   };
+
+  // Automatically analyze all images after loading
+  useEffect(() => {
+    if (images.length > 0) {
+      images.forEach(img => {
+        if (!img.summary && img.pageTitle) {
+          analyzeImage(img.id);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images.length]);
 
   const addQuestion = async () => {
     if (!newQuestion.trim() || !selectedImage) return;
@@ -655,23 +664,12 @@ ${JSON.stringify(chartData.data, null, 2)}
                       </div>
                       <h4 className="font-semibold text-gray-800 mb-2">{image.name}</h4>
                       <div className="space-y-2">
-                        <button
-                          onClick={() => analyzeImage(image.id)}
-                          disabled={isAnalyzing === image.id}
-                          className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-confluence-blue disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
-                        >
-                          {isAnalyzing === image.id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Analyzing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="w-4 h-4" />
-                              <span>Summarize</span>
-                            </>
-                          )}
-                        </button>
+                        {isAnalyzing === image.id && (
+                          <div className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg flex items-center justify-center space-x-2 border border-white/10">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Analyzing...</span>
+                          </div>
+                        )}
                         {image.summary && (
                           <button
                             onClick={() => createChart(image.id, selectedChartType, chartExportFormat)}
