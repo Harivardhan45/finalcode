@@ -1331,6 +1331,7 @@ async def generate_flowchart(request: FlowchartRequest, req: Request):
             f"Content:\n{text_content[:4000]}"
         )
         response = ai_model.generate_content(prompt)
+        print(f"[DEBUG] Gemini raw response for flowchart:\n{response.text}")
         import json as _json
         try:
             structure = _json.loads(response.text.strip().split('```')[-1])
