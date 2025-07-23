@@ -686,7 +686,7 @@ ${JSON.stringify(chartData.data, null, 2)}
               {flowchartError && (
                 <div className="text-red-600 py-4">{flowchartError}</div>
               )}
-              {flowchartData && flowchartData.mermaid && flowchartData.detected_type !== 'image' && (
+              {flowchartData && (flowchartData.detected_type === 'code' || flowchartData.detected_type === 'procedural') && flowchartData.mermaid && (
                 <FlowchartBuilder
                   mermaidCode={flowchartData.mermaid}
                   detectedType={flowchartData.detected_type}

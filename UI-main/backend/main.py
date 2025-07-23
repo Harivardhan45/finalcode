@@ -1347,18 +1347,61 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
             debug['code_blocks'] = code_blocks
         elif steps:
             detected_type = "procedural"
-            # Each step is a process node
+            # Improved: Parse steps and handle Yes/No/Go to STEP N logic
+            step_map = {}
+            step_ids = []
             for i, step in enumerate(steps):
-                node_id = f"S{i}"
-                nodes.append({"id": node_id, "type": "process", "label": step.strip()})
-            for i in range(len(nodes)-1):
-                edges.append({"from": nodes[i]['id'], "to": nodes[i+1]['id'], "label": ""})
+                step_num = i + 1
+                node_id = f"S{step_num}"
+                step_map[step_num] = {"id": node_id, "label": step.strip(), "raw": step}
+                step_ids.append(node_id)
+            # Build nodes
+            nodes = [{"id": v["id"], "type": "process", "label": v["label"]} for v in step_map.values()]
+            # Build edges and handle decisions
+            edges = []
+            jump_map = {}  # step_num -> list of (label, target_step_num)
+            for i, step in enumerate(steps):
+                step_num = i + 1
+                # Detect decision (e.g., 'Is ...?')
+                if re.search(r"\bIs .+\?", step, re.IGNORECASE):
+                    # Look for Yes/No: Go to STEP N in subsequent steps or in the same step
+                    yes_match = re.search(r"Yes: Go to STEP (\d+)", step, re.IGNORECASE)
+                    no_match = re.search(r"No: Go to STEP (\d+)", step, re.IGNORECASE)
+                    if yes_match:
+                        target = int(yes_match.group(1))
+                        edges.append({"from": f"S{step_num}", "to": f"S{target}", "label": "Yes"})
+                        jump_map.setdefault(step_num, []).append(("Yes", target))
+                    if no_match:
+                        target = int(no_match.group(1))
+                        edges.append({"from": f"S{step_num}", "to": f"S{target}", "label": "No"})
+                        jump_map.setdefault(step_num, []).append(("No", target))
+                    # Mark this node as a decision
+                    for n in nodes:
+                        if n["id"] == f"S{step_num}":
+                            n["type"] = "decision"
+                # Detect Go to STEP N (unlabeled)
+                goto_match = re.search(r"Go to STEP (\d+)", step, re.IGNORECASE)
+                if goto_match and not re.search(r"Yes:|No:", step, re.IGNORECASE):
+                    target = int(goto_match.group(1))
+                    edges.append({"from": f"S{step_num}", "to": f"S{target}", "label": ""})
+                    jump_map.setdefault(step_num, []).append(("", target))
+                # Default: connect to next step if not a jump/decision
+                if (step_num not in jump_map) and (step_num < len(steps)):
+                    edges.append({"from": f"S{step_num}", "to": f"S{step_num+1}", "label": ""})
+            # Mermaid string
             mermaid = "flowchart TD\n"
             for n in nodes:
-                mermaid += f"    {n['id']}{{{{{n['label']}}}}}\n"
+                if n["type"] == "decision":
+                    mermaid += f"    {n['id']}{{{{{n['label']}}}}}\n"
+                else:
+                    mermaid += f"    {n['id']}[\"{n['label']}\"]\n"
             for e in edges:
-                mermaid += f"    {e['from']} --> {e['to']}\n"
+                if e["label"]:
+                    mermaid += f"    {e['from']} --|{e['label']}|--> {e['to']}\n"
+                else:
+                    mermaid += f"    {e['from']} --> {e['to']}\n"
             debug['steps'] = steps
+            debug['edges'] = edges
         else:
             detected_type = "ai"
             # Fallback to Gemini AI
