@@ -1403,12 +1403,12 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 )
                 endshape = (
                     "))" if n["type"] == "start" else
-                    ")]" if n["type"] == "io" else
+                    "])" if n["type"] == "io" else
                     "]]" if n["type"] == "preprocessor" else
                     "}]" if n["type"] == "data" else
                     "}}" if n["type"] == "process" else
                     "?}" if n["type"] == "decision" else
-                    ")]" if n["type"] == "predefined" else
+                    "])" if n["type"] == "predefined" else
                     "))" if n["type"] == "end" else
                     "]"
                 )
