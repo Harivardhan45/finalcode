@@ -145,31 +145,6 @@ export interface SaveToConfluenceResponse {
   message?: string;
 }
 
-export interface FlowchartRequest {
-  space_key: string;
-  page_title: string;
-}
-
-export interface FlowchartNode {
-  id: string;
-  label: string;
-  type: string;
-}
-
-export interface FlowchartEdge {
-  from: string;
-  to: string;
-  label?: string;
-}
-
-export interface FlowchartResponse {
-  svg_base64?: string;
-  detected_type?: string;
-  message?: string;
-  nodes?: FlowchartNode[];
-  edges?: FlowchartEdge[];
-}
-
 class ApiService {
   private getSelectedApiKey(): string | undefined {
     if (typeof window !== 'undefined' && localStorage.getItem('selectedApiKeyId')) {
@@ -262,13 +237,6 @@ class ApiService {
 
   async createChart(request: ChartRequest): Promise<ChartResponse> {
     return this.makeRequest<ChartResponse>('/create-chart', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  }
-
-  async generateFlowchart(request: FlowchartRequest): Promise<FlowchartResponse> {
-    return this.makeRequest<FlowchartResponse>('/generate-flowchart', {
       method: 'POST',
       body: JSON.stringify(request),
     });

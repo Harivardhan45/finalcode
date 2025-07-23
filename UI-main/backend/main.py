@@ -20,7 +20,6 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 import difflib
 import base64
-from graphviz import Digraph
 
 # Load environment variables
 load_dotenv()
@@ -118,17 +117,6 @@ class AnalyzeGoalResponse(BaseModel):
     tools: list[str]
     pages: list[str]
     reasoning: str
-
-class FlowchartRequest(BaseModel):
-    space_key: str
-    page_title: str
-
-class FlowchartResponse(BaseModel):
-    svg_base64: str = None
-    detected_type: str = None
-    message: str = None
-    nodes: list = []
-    edges: list = []
 
 # Helper functions
 def remove_emojis(text):
@@ -1290,90 +1278,6 @@ async def create_chart(request: ChartRequest, req: Request):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate-flowchart", response_model=FlowchartResponse)
-async def generate_flowchart(request: FlowchartRequest, req: Request):
-    """Generate a flowchart from code or procedural instructions in a Confluence page."""
-    try:
-        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
-        genai.configure(api_key=api_key)
-        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
-        confluence = init_confluence()
-        space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
-        # Get page content
-        pages = confluence.get_all_pages_from_space(space=space_key, start=0, limit=100)
-        page = next((p for p in pages if p["title"] == request.page_title), None)
-        if not page:
-            raise HTTPException(status_code=404, detail="Page not found")
-        page_id = page["id"]
-        page_data = confluence.get_page_by_id(page_id, expand="body.storage")
-        raw_html = page_data["body"]["storage"]["value"]
-        text_content = clean_html(raw_html)
-        print(f"[DEBUG] Extracted text_content for flowchart:\n{text_content}")
-        # Detect content type
-        code_pattern = re.compile(r"#\s*type:\s*\w+", re.IGNORECASE)
-        step_pattern = re.compile(r"STEP\s*\d+[:：]", re.IGNORECASE)
-        print(f"[DEBUG] code_pattern.search(text_content): {code_pattern.search(text_content)}")
-        print(f"[DEBUG] step_pattern.search(text_content): {step_pattern.search(text_content)}")
-        detected_type = None
-        if code_pattern.search(text_content):
-            detected_type = "code"
-        elif step_pattern.search(text_content):
-            detected_type = "procedural"
-        if not detected_type:
-            return FlowchartResponse(message="No code or procedural instructions detected.")
-        # Use Gemini to extract flowchart structure
-        prompt = (
-            f"Extract a flowchart structure from the following {'code' if detected_type=='code' else 'instructions'} as JSON. "
-            "Nodes should have: id, label, type (start, process, decision, data, end). "
-            "Edges should have: from, to, label (optional). "
-            "Return a JSON object: {nodes: [...], edges: [...]} only.\n\n"
-            f"Content:\n{text_content[:4000]}"
-        )
-        response = ai_model.generate_content(prompt)
-        print(f"[DEBUG] Gemini raw response for flowchart:\n{response.text}")
-        import json as _json
-        try:
-            raw = response.text.strip()
-            if raw.startswith('```json'):
-                raw = raw[7:]
-            if raw.startswith('```'):
-                raw = raw[3:]
-            if raw.endswith('```'):
-                raw = raw[:-3]
-            structure = _json.loads(raw)
-            nodes = structure.get('nodes', [])
-            edges = structure.get('edges', [])
-        except Exception:
-            return FlowchartResponse(message="Could not extract flowchart structure from AI.")
-        # Render with graphviz
-        dot = Digraph(format='svg')
-        type_shape = {
-            'start': 'oval',
-            'end': 'oval',
-            'process': 'rect',
-            'decision': 'diamond',
-            'data': 'parallelogram',
-        }
-        type_color = {
-            'start': 'lightgreen',
-            'end': 'lightcoral',
-            'process': 'lightblue',
-            'decision': 'gold',
-            'data': 'orange',
-        }
-        for node in nodes:
-            shape = type_shape.get(node.get('type', 'process'), 'rect')
-            color = type_color.get(node.get('type', 'process'), 'lightblue')
-            dot.node(node['id'], node['label'], shape=shape, style='filled', fillcolor=color)
-        for edge in edges:
-            label = edge.get('label', '')
-            dot.edge(edge['from'], edge['to'], label=label)
-        svg = dot.pipe(format='svg')
-        svg_base64 = base64.b64encode(svg).decode('utf-8')
-        return FlowchartResponse(svg_base64=svg_base64, detected_type=detected_type, nodes=nodes, edges=edges)
-    except Exception as e:
-        return FlowchartResponse(message=f"Error: {str(e)}")
 
 @app.post("/export")
 async def export_content(request: ExportRequest, req: Request):

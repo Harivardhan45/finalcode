@@ -4,7 +4,6 @@ import { FeatureType, AppMode } from '../App';
 import { apiService } from '../services/api';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 import CustomScrollbar from './CustomScrollbar';
-import { FlowchartResponse } from '../services/api';
 
 interface ImageInsightsProps {
   onClose: () => void;
@@ -53,8 +52,6 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [isExportingChart, setIsExportingChart] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const chartPreviewRef = useRef<HTMLDivElement>(null);
-  const [flowchartData, setFlowchartData] = useState<FlowchartResponse | null>(null);
-  const [isLoadingFlowchart, setIsLoadingFlowchart] = useState(false);
 
   // Load spaces on component mount
   useEffect(() => {
@@ -99,20 +96,6 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     };
     loadPages();
   }, [spaceKey]);
-
-  // Fetch flowchart when a page is selected
-  useEffect(() => {
-    if (spaceKey && selectedPages.length === 1) {
-      setIsLoadingFlowchart(true);
-      setFlowchartData(null);
-      apiService.generateFlowchart({ space_key: spaceKey, page_title: selectedPages[0] })
-        .then((res) => setFlowchartData(res))
-        .catch(() => setFlowchartData(null))
-        .finally(() => setIsLoadingFlowchart(false));
-    } else {
-      setFlowchartData(null);
-    }
-  }, [spaceKey, selectedPages]);
 
   const chartTypes = [
     { value: 'bar' as const, label: 'Grouped Bar Chart' },
