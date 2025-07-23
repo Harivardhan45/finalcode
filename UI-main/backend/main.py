@@ -1370,7 +1370,7 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 if not any(e['from'] == node_ids[i] for e in edges):
                     edges.append({"from": node_ids[i], "to": node_ids[i+1], "label": ""})
             # Mermaid string
-            def safe_label(label, quoted=True):
+            def safe_label(label, quoted=True, subroutine=False):
                 # Extract function name if label is a function signature
                 func_match = re.match(r'def\s+([a-zA-Z0-9_]+)\s*\(', label)
                 if func_match:
@@ -1380,6 +1380,9 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                 label = label.replace('"', "'")  # replace double quotes with single
                 # Optionally, make it more human-readable
                 label = label.replace('_', ' ').strip().capitalize()
+                if subroutine:
+                    # For subroutine ([[ ... ]]) nodes, use a single word (no spaces)
+                    return re.sub(r'[^a-zA-Z0-9]', '', label)
                 if quoted:
                     return f'"{label}"'
                 else:
@@ -1409,8 +1412,10 @@ async def flowchart_builder(request: FlowchartBuilderRequest, req: Request):
                     "))" if n["type"] == "end" else
                     "]"
                 )
-                # Use quotes only for standard nodes
-                if shape == "[":
+                # Use special logic for subroutine ([[ ... ]])
+                if shape == "[[":
+                    label = safe_label(n['label'], quoted=False, subroutine=True)
+                elif shape == "[":
                     label = safe_label(n['label'], quoted=True)
                 else:
                     label = safe_label(n['label'], quoted=False)
