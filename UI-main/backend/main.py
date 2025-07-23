@@ -1313,6 +1313,8 @@ async def generate_flowchart(request: FlowchartRequest, req: Request):
         # Detect content type
         code_pattern = re.compile(r"#\s*type:\s*\w+", re.IGNORECASE)
         step_pattern = re.compile(r"STEP\s*\d+[:：]", re.IGNORECASE)
+        print(f"[DEBUG] code_pattern.search(text_content): {code_pattern.search(text_content)}")
+        print(f"[DEBUG] step_pattern.search(text_content): {step_pattern.search(text_content)}")
         detected_type = None
         if code_pattern.search(text_content):
             detected_type = "code"
