@@ -59,18 +59,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
     'Add Logging Statements'
   ];
 
-  // Listen for UPDATE_CONTEXT messages from parent
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'UPDATE_CONTEXT') {
-        const { spaceKey: newSpaceKey, pageTitle: newPageTitle } = event.data;
-        if (typeof newSpaceKey === 'string') setSelectedSpace(newSpaceKey);
-        if (typeof newPageTitle === 'string' && pages.includes(newPageTitle)) setSelectedPage(newPageTitle);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [pages]);
   // Load spaces on component mount
   useEffect(() => {
     loadSpaces();
