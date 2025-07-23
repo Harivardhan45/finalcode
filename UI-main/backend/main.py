@@ -1334,7 +1334,14 @@ async def generate_flowchart(request: FlowchartRequest, req: Request):
         print(f"[DEBUG] Gemini raw response for flowchart:\n{response.text}")
         import json as _json
         try:
-            structure = _json.loads(response.text.strip().split('```')[-1])
+            raw = response.text.strip()
+            if raw.startswith('```json'):
+                raw = raw[7:]
+            if raw.startswith('```'):
+                raw = raw[3:]
+            if raw.endswith('```'):
+                raw = raw[:-3]
+            structure = _json.loads(raw)
             nodes = structure.get('nodes', [])
             edges = structure.get('edges', [])
         except Exception:
