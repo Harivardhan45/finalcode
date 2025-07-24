@@ -98,6 +98,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
       const { page } = getConfluenceSpaceAndPageFromUrl();
       if (page && result.pages.includes(page)) {
         setSelectedPage(page);
+        handlePageSelect(page); // Immediately load code for the auto-selected page
       }
     } catch (err) {
       setError('Failed to load pages. Please check your space key.');
