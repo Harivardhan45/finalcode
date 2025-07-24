@@ -235,7 +235,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Search Configuration */}
-            <div className="space-y-6" style={{ overflow: 'visible' }}>
+            <div className="space-y-6 relative z-50" style={{ overflow: 'visible' }}>
               <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                 <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                   <Settings className="w-5 h-5 mr-2" />
@@ -383,7 +383,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
             </div>
 
             {/* Right Column - Results */}
-            <div className="space-y-6 z-10 relative">
+            <div className="space-y-6 z-40">
               {response && (
                 <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <div className="flex items-center justify-between mb-4">
