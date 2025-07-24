@@ -4,6 +4,7 @@ import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
+import VoiceRecorder from './VoiceRecorder';
 
 interface AIPoweredSearchProps {
   onClose: () => void;
@@ -350,12 +351,9 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Your Question
                   </label>
-                  <textarea
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="What would you like to know about the selected content?"
-                    className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue resize-none bg-white/70 backdrop-blur-sm"
-                    rows={4}
+                  <VoiceRecorder
+                    onConfirm={setQuery}
+                    inputPlaceholder="What would you like to know about the selected content?"
                   />
                 </div>
 

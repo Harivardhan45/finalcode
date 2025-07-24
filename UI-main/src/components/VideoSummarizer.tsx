@@ -4,6 +4,7 @@ import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
+import VoiceRecorder from './VoiceRecorder';
 
 interface VideoSummarizerProps {
   onClose: () => void;
@@ -553,15 +554,13 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                           
                           {/* Add New Question */}
                           <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-                            <div className="flex space-x-2">
-                              <input
-                                type="text"
-                                value={newQuestion}
-                                onChange={(e) => setNewQuestion(e.target.value)}
-                                placeholder="Ask a question about this video..."
-                                className="flex-1 p-2 border border-white/30 rounded focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm"
-                                onKeyPress={(e) => e.key === 'Enter' && addQuestion()}
-                              />
+                            <div className="flex space-x-2 items-center">
+                              <div className="flex-1">
+                                <VoiceRecorder
+                                  onConfirm={setNewQuestion}
+                                  inputPlaceholder="Ask a question about this video..."
+                                />
+                              </div>
                               <button
                                 onClick={() => {
                                   setSelectedVideo(video.id);

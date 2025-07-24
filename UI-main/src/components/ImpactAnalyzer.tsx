@@ -4,6 +4,7 @@ import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
+import VoiceRecorder from './VoiceRecorder';
 
 interface ImpactAnalyzerProps {
   onClose: () => void;
@@ -514,14 +515,12 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
                 {/* Add Question */}
                 <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Ask about the impact analysis..."
-                    className="w-full p-2 border border-white/30 rounded focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm"
-                    onKeyPress={(e) => e.key === 'Enter' && addQuestion()}
-                  />
+                  <div className="w-full">
+                    <VoiceRecorder
+                      onConfirm={setQuestion}
+                      inputPlaceholder="Ask about the impact analysis..."
+                    />
+                  </div>
                   <button
                     onClick={addQuestion}
                     disabled={!question.trim() || isQALoading}

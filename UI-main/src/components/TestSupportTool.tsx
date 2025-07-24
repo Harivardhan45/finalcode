@@ -5,6 +5,7 @@ import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import ReactMarkdown from 'react-markdown';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
+import VoiceRecorder from './VoiceRecorder';
 
 interface TestSupportToolProps {
   onClose: () => void;
@@ -615,13 +616,12 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
                 {/* Add Question */}
                 <div className="space-y-2">
-                  <textarea
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Ask about testing strategies, coverage, or specific scenarios..."
-                    className="w-full p-2 border border-white/30 rounded focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue resize-none bg-white/70 backdrop-blur-sm"
-                    rows={3}
-                  />
+                  <div className="w-full">
+                    <VoiceRecorder
+                      onConfirm={setQuestion}
+                      inputPlaceholder="Ask about testing strategies, coverage, or specific scenarios..."
+                    />
+                  </div>
                   <button
                     onClick={addQuestion}
                     disabled={!question.trim() || isQALoading}

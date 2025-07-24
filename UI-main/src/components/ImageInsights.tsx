@@ -4,6 +4,7 @@ import { FeatureType, AppMode } from '../App';
 import { apiService } from '../services/api';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 import CustomScrollbar from './CustomScrollbar';
+import VoiceRecorder from './VoiceRecorder';
 
 interface ImageInsightsProps {
   onClose: () => void;
@@ -943,13 +944,12 @@ ${JSON.stringify(chartData.data, null, 2)}
                 </div>
                 {/* Add Question */}
                 <div className="space-y-2">
-                  <textarea
-                    value={newQuestion}
-                    onChange={(e) => setNewQuestion(e.target.value)}
-                    placeholder="Ask about the selected image..."
-                    className="w-full p-2 border border-white/30 rounded focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue resize-none bg-white/70 backdrop-blur-sm"
-                    rows={3}
-                  />
+                  <div className="w-full">
+                    <VoiceRecorder
+                      onConfirm={setNewQuestion}
+                      inputPlaceholder="Ask about the selected image..."
+                    />
+                  </div>
                   <button
                     onClick={addQuestion}
                     disabled={!newQuestion.trim() || !selectedImage || isAskingQuestion}
