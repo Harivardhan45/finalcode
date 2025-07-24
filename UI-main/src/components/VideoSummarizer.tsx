@@ -646,19 +646,17 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
           {/* Bulk Export Section - Show when 2 or more videos */}
           {videos.length >= 2 && (
             <div className="mt-6 bg-white/60 backdrop-blur-xl rounded-xl p-6 border border-white/20 shadow-lg">
-              <div>
+              <div className="flex flex-col items-center text-center space-y-3">
                 <h3 className="font-semibold text-gray-800 mb-2">Export All Videos</h3>
                 <p className="text-sm text-gray-600">Export all {videos.length} processed videos in a single file</p>
-              </div>
-              <div className="flex flex-col items-end space-y-3 mt-4">
                 <button
                   onClick={exportAllVideos}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-green-700 transition-colors border border-white/10"
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-green-700 transition-colors border border-white/10 mt-2"
                 >
                   <Download className="w-4 h-4" />
                   <span>Export All ({videos.length})</span>
                 </button>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-center space-x-2 mt-2">
                   <label className="text-sm font-medium text-gray-700">Format:</label>
                   <select
                     value={exportFormat}
