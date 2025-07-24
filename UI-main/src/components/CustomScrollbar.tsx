@@ -5,12 +5,37 @@ interface CustomScrollbarProps {
   className?: string;
 }
 
+const SCROLL_KEY = 'feature-nav-scroll-position';
+
 const CustomScrollbar: React.FC<CustomScrollbarProps> = ({ children, className = '' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [thumbWidth, setThumbWidth] = useState(0);
   const [thumbLeft, setThumbLeft] = useState(0);
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved) {
+      container.scrollLeft = parseInt(saved, 10);
+    }
+  }, []);
+
+  // Save scroll position on scroll
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const handleSaveScroll = () => {
+      sessionStorage.setItem(SCROLL_KEY, String(container.scrollLeft));
+    };
+    container.addEventListener('scroll', handleSaveScroll);
+    return () => {
+      container.removeEventListener('scroll', handleSaveScroll);
+    };
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
