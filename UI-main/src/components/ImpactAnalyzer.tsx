@@ -239,6 +239,13 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
     }
   };
 
+  // Helper to get risk level from score
+  const getRiskLevelFromScore = (score: number): 'low' | 'medium' | 'high' => {
+    if (score <= 3) return 'low';
+    if (score <= 6) return 'medium';
+    return 'high';
+  };
+
   return (
     <div className="fixed inset-0 bg-white flex items-center justify-center z-40 p-4">
       <div className="bg-white/80 backdrop-blur-xl border-2 border-[#DFE1E6] rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
@@ -413,13 +420,18 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                 {riskLevel && (
                   <div className="mt-6">
                     <h4 className="font-semibold text-gray-800 mb-2">Risk Assessment</h4>
-                    <div className={`p-3 rounded-lg flex items-center space-x-2 border ${getRiskColor(riskLevel.level)}`}>
-                      {getRiskIcon(riskLevel.level)}
-                      <div>
-                        <div className="font-semibold capitalize">{riskLevel.level} Risk</div>
-                        <div className="text-sm">Score: {riskLevel.score}/10</div>
-                      </div>
-                    </div>
+                    {(() => {
+                      const level = getRiskLevelFromScore(riskLevel.score);
+                      return (
+                        <div className={`p-3 rounded-lg flex items-center space-x-2 border ${getRiskColor(level)}`}>
+                          {getRiskIcon(level)}
+                          <div>
+                            <div className="font-semibold capitalize">{level} Risk</div>
+                            <div className="text-sm">Score: {riskLevel.score}/10</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

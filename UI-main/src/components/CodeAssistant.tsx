@@ -4,6 +4,7 @@ import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
+import VoiceRecorder from './VoiceRecorder';
 
 interface CodeAssistantProps {
   onClose: () => void;
@@ -488,13 +489,12 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Modification Instruction
                   </label>
-                  <textarea
-                    value={instruction}
-                    onChange={(e) => setInstruction(e.target.value)}
-                    placeholder="Describe the changes you want to make to the code..."
-                    className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue resize-none bg-white/70 backdrop-blur-sm"
-                    rows={3}
-                  />
+                  <div className="w-full">
+                    <VoiceRecorder
+                      onConfirm={setInstruction}
+                      inputPlaceholder="Describe the changes you want to make to the code..."
+                    />
+                  </div>
                 </div>
 
                 {/* Target Language */}
