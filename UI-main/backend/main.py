@@ -259,7 +259,8 @@ def hybrid_rag(prompt, api_key=None):
     web_context = search_web_google(prompt)
     if not web_context.strip():
         response = model.generate_content(prompt)
-        return response.parts[0].text.strip() if response.parts else "⚠️ No answer from Gemini."
+        answer = response.parts[0].text.strip() if response.parts else "⚠️ No answer from Gemini."
+        return answer, "llm"
     final_prompt = f"""
 Use the following web search results to answer the question accurately.
 If relevant, include links as citations.
@@ -276,10 +277,11 @@ Answer:
         text = response.parts[0].text.strip() if response.parts else "⚠️ No answer from Gemini."
         if "do not contain" in text.lower():
             response = model.generate_content(prompt)
-            return response.parts[0].text.strip() if response.parts else "⚠️ No fallback answer from Gemini."
-        return text
+            answer = response.parts[0].text.strip() if response.parts else "⚠️ No fallback answer from Gemini."
+            return answer, "llm"
+        return text, "hybrid_rag"
     except Exception as e:
-        return f"❌ Gemini error: {e}"
+        return f"❌ Gemini error: {e}", "hybrid_rag"
 
 # API Endpoints
 @app.get("/")
@@ -356,12 +358,13 @@ async def ai_powered_search(request: SearchRequest, req: Request):
         )
         response = ai_model.generate_content(structured_prompt)
         import json as _json
+        source = "llm"
         try:
             result = _json.loads(response.text.strip())
             ai_response = result.get('answer', '').strip()
             supported = result.get('supported_by_context', False)
             if not supported:
-                ai_response = hybrid_rag(request.query, api_key=api_key)
+                ai_response, source = hybrid_rag(request.query, api_key=api_key)
         except Exception:
             ai_response = response.text.strip()
             supported = None
@@ -373,11 +376,11 @@ async def ai_powered_search(request: SearchRequest, req: Request):
                     ai_response = result.get('answer', '').strip()
                     supported = result.get('supported_by_context', False)
                     if not supported:
-                        ai_response = hybrid_rag(request.query, api_key=api_key)
+                        ai_response, source = hybrid_rag(request.query, api_key=api_key)
             except Exception:
                 # Regex fallback for supported_by_context: false
                 if re.search(r"supported_by_context['\"]?\s*[:=]\s*false", response.text.strip(), re.IGNORECASE):
-                    ai_response = hybrid_rag(request.query, api_key=api_key)
+                    ai_response, source = hybrid_rag(request.query, api_key=api_key)
                 else:
                     # Heuristic: If the answer is not generic and overlaps with context, accept it
                     def is_generic_answer(answer, context):
@@ -412,7 +415,7 @@ async def ai_powered_search(request: SearchRequest, req: Request):
                         return False
                     supported = not is_generic_answer(ai_response, full_context)
                     if not supported:
-                        ai_response = hybrid_rag(request.query, api_key=api_key)
+                        ai_response, source = hybrid_rag(request.query, api_key=api_key)
             # If ast.literal_eval succeeded and ai_response is still a dict, extract 'answer'
             if isinstance(ai_response, dict):
                 ai_response = ai_response.get('answer', '').strip()
@@ -422,13 +425,12 @@ async def ai_powered_search(request: SearchRequest, req: Request):
                 if match:
                     ai_response = match.group(1).strip()
         page_titles = [p["title"] for p in selected_pages]
-        grounding = f"This answer is based on the following Confluence page(s): {', '.join(page_titles)}."
         final_response = ai_response
         return {
-            "response": f"{final_response}\n\n{grounding}",
+            "response": final_response,
             "pages_analyzed": len(selected_pages),
             "page_titles": page_titles,
-            "grounding": grounding
+            "source": source
         }
         
     except Exception as e:
