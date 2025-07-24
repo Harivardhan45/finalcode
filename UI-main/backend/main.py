@@ -352,7 +352,9 @@ async def ai_powered_search(request: SearchRequest, req: Request):
         )
         
         structured_prompt = (
-            f"Answer the following question using ONLY the provided context. Return your answer as JSON: {{'answer': <your answer>, 'supported_by_context': true/false}}. If the answer is not in the context, set 'supported_by_context' to false.\n"
+            f"Answer the following question using ONLY the provided context. Return your answer as JSON: {{'answer': <your answer>, 'supported_by_context': true/false, 'can_answer': true/false}}. "
+            f"If the answer is not in the context but you can answer from your own knowledge, set 'supported_by_context' to false and 'can_answer' to true. "
+            f"If you cannot answer at all, set both to false and return an empty or generic answer.\n"
             f"Context:\n{full_context}\n\n"
             f"Question: {request.query}"
         )
@@ -363,11 +365,13 @@ async def ai_powered_search(request: SearchRequest, req: Request):
             result = _json.loads(response.text.strip())
             ai_response = result.get('answer', '').strip()
             supported = result.get('supported_by_context', False)
-            if not supported:
+            can_answer = result.get('can_answer', True)
+            if not supported and not can_answer:
                 ai_response, source = hybrid_rag(request.query, api_key=api_key)
         except Exception:
             ai_response = response.text.strip()
             supported = None
+            can_answer = True
             # Try ast.literal_eval for Python-style dict
             import ast, re
             try:
@@ -375,11 +379,12 @@ async def ai_powered_search(request: SearchRequest, req: Request):
                 if isinstance(result, dict):
                     ai_response = result.get('answer', '').strip()
                     supported = result.get('supported_by_context', False)
-                    if not supported:
+                    can_answer = result.get('can_answer', True)
+                    if not supported and not can_answer:
                         ai_response, source = hybrid_rag(request.query, api_key=api_key)
             except Exception:
-                # Regex fallback for supported_by_context: false
-                if re.search(r"supported_by_context['\"]?\s*[:=]\s*false", response.text.strip(), re.IGNORECASE):
+                # Regex fallback for supported_by_context: false and can_answer: false
+                if re.search(r"supported_by_context['\"]?\s*[:=]\s*false", response.text.strip(), re.IGNORECASE) and re.search(r"can_answer['\"]?\s*[:=]\s*false", response.text.strip(), re.IGNORECASE):
                     ai_response, source = hybrid_rag(request.query, api_key=api_key)
             # If ast.literal_eval succeeded and ai_response is still a dict, extract 'answer'
             if isinstance(ai_response, dict):
