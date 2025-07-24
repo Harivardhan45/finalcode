@@ -42,6 +42,7 @@ export interface SearchResponse {
   response: string;
   pages_analyzed: number;
   page_titles: string[];
+  source?: string;
 }
 
 export interface CodeResponse {

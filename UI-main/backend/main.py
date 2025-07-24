@@ -381,41 +381,6 @@ async def ai_powered_search(request: SearchRequest, req: Request):
                 # Regex fallback for supported_by_context: false
                 if re.search(r"supported_by_context['\"]?\s*[:=]\s*false", response.text.strip(), re.IGNORECASE):
                     ai_response, source = hybrid_rag(request.query, api_key=api_key)
-                else:
-                    # Heuristic: If the answer is not generic and overlaps with context, accept it
-                    def is_generic_answer(answer, context):
-                        generic_phrases = [
-                            "There are several ways to summarize",
-                            "Online tools like",
-                            "AI summarizers",
-                            "Some platforms",
-                            "depending on the tools available",
-                            "limitations on document length",
-                            "require paid subscriptions",
-                            "offer built-in summarization capabilities",
-                            "Google Assistant can summarize",
-                            "TLDThis.com offer free text summarization",
-                            "Atlassian Intelligence",
-                            "Other AI summarizers",
-                            "If accessed through the Google Chrome browser",
-                            "desired level of detail"
-                        ]
-                        answer_lower = answer.lower()
-                        if len(answer) < 80:
-                            return True
-                        for phrase in generic_phrases:
-                            if phrase.lower() in answer_lower:
-                                return True
-                        # Check for overlap with context (at least 2 unique words in both)
-                        context_words = set(context.lower().split())
-                        answer_words = set(answer_lower.split())
-                        overlap = context_words.intersection(answer_words)
-                        if len(overlap) < 2:
-                            return True
-                        return False
-                    supported = not is_generic_answer(ai_response, full_context)
-                    if not supported:
-                        ai_response, source = hybrid_rag(request.query, api_key=api_key)
             # If ast.literal_eval succeeded and ai_response is still a dict, extract 'answer'
             if isinstance(ai_response, dict):
                 ai_response = ai_response.get('answer', '').strip()

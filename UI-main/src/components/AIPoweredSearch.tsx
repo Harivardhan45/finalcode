@@ -26,6 +26,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState('');
+  const [responseSource, setResponseSource] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showRawContent, setShowRawContent] = useState(false);
   const [exportFormat, setExportFormat] = useState('markdown');
@@ -140,6 +141,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
       });
 
       setResponse(result.response);
+      setResponseSource(result.source || '');
     } catch (err) {
       setError('Failed to generate AI response. Please try again.');
       console.error('Error generating response:', err);
@@ -233,7 +235,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Search Configuration */}
-            <div className="space-y-6">
+            <div className="space-y-6" style={{ overflow: 'visible' }}>
               <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                 <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                   <Settings className="w-5 h-5 mr-2" />
@@ -265,7 +267,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages to Analyze ({selectedPages.length} selected)
                   </label>
-                  <div className="relative">
+                  <div className="relative z-50">
                     <button
                       type="button"
                       onClick={() => setIsPageDropdownOpen(!isPageDropdownOpen)}
@@ -288,7 +290,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                     </button>
                     {/* Dropdown */}
                     {isPageDropdownOpen && selectedSpace && (
-                      <div className="absolute z-10 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
                         {/* Header with Select All/Clear All */}
                         <div className="p-3 border-b border-white/20 bg-white/50">
                           <div className="flex justify-between items-center">
@@ -386,6 +388,13 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                 <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-800">AI Response</h3>
+                    {responseSource && (
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ml-2 
+                        ${responseSource === 'llm' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}
+                      >
+                        {responseSource === 'llm' ? 'Source: LLM' : 'Source: Hybrid RAG'}
+                      </span>
+                    )}
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => setShowRawContent(!showRawContent)}
