@@ -529,6 +529,8 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                 <div className="space-y-2">
                   <div className="w-full">
                     <VoiceRecorder
+                      value={question}
+                      onChange={setQuestion}
                       onConfirm={setQuestion}
                       inputPlaceholder="Ask about the impact analysis..."
                     />

@@ -352,6 +352,8 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                     Your Question
                   </label>
                   <VoiceRecorder
+                    value={query}
+                    onChange={setQuery}
                     onConfirm={setQuery}
                     inputPlaceholder="What would you like to know about the selected content?"
                   />

@@ -946,6 +946,8 @@ ${JSON.stringify(chartData.data, null, 2)}
                 <div className="space-y-2">
                   <div className="w-full">
                     <VoiceRecorder
+                      value={newQuestion}
+                      onChange={setNewQuestion}
                       onConfirm={setNewQuestion}
                       inputPlaceholder="Ask about the selected image..."
                     />

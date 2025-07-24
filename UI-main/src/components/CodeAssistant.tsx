@@ -491,6 +491,8 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                   </label>
                   <div className="w-full">
                     <VoiceRecorder
+                      value={instruction}
+                      onChange={setInstruction}
                       onConfirm={setInstruction}
                       inputPlaceholder="Describe the changes you want to make to the code..."
                     />

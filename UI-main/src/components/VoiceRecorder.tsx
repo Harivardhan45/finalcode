@@ -5,14 +5,23 @@ interface VoiceRecorderProps {
   onConfirm: (transcript: string) => void;
   buttonClassName?: string;
   inputPlaceholder?: string;
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
-const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onConfirm, buttonClassName = '', inputPlaceholder = 'Speak or type...' }) => {
+const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onConfirm, buttonClassName = '', inputPlaceholder = 'Speak or type...', value, onChange }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [pendingTranscript, setPendingTranscript] = useState<string | null>(null);
   const [speechError, setSpeechError] = useState('');
   const recognitionRef = useRef<any>(null);
+
+  // Sync controlled value from parent
+  React.useEffect(() => {
+    if (typeof value === 'string' && value !== transcript) {
+      setTranscript(value);
+    }
+  }, [value]);
 
   // Initialize recognition only once
   const getRecognition = () => {
@@ -92,8 +101,12 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onConfirm, buttonClassNam
           <div className="relative w-full">
             <input
               type="text"
-              value={transcript}
-              onChange={e => setTranscript(e.target.value)}
+              value={typeof value === 'string' ? value : transcript}
+              onChange={e => {
+                setTranscript(e.target.value);
+                if (onChange) onChange(e.target.value);
+                else onConfirm(e.target.value);
+              }}
               placeholder={isListening ? '' : inputPlaceholder}
               className="w-full p-3 text-base border border-white/30 rounded focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm"
               style={{ minWidth: 0 }}

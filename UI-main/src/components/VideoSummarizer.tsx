@@ -557,6 +557,8 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                             <div className="flex space-x-2 items-center">
                               <div className="flex-1">
                                 <VoiceRecorder
+                                  value={newQuestion}
+                                  onChange={setNewQuestion}
                                   onConfirm={setNewQuestion}
                                   inputPlaceholder="Ask a question about this video..."
                                 />
