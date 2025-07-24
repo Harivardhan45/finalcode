@@ -383,7 +383,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
             </div>
 
             {/* Right Column - Results */}
-            <div className="space-y-6">
+            <div className="space-y-6 z-10 relative">
               {response && (
                 <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <div className="flex items-center justify-between mb-4">

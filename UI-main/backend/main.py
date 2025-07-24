@@ -352,7 +352,7 @@ async def ai_powered_search(request: SearchRequest, req: Request):
         )
         
         structured_prompt = (
-            f"Answer the following question using ONLY the provided context. Return your answer as JSON: {{'answer': <your answer>, 'supported_by_context': true/false, 'can_answer': true/false}}. "
+            f"Answer the following question using the provided context. Return your answer as JSON: {{'answer': <your answer>, 'supported_by_context': true/false, 'can_answer': true/false}}. "
             f"If the answer is not in the context but you can answer from your own knowledge, set 'supported_by_context' to false and 'can_answer' to true. "
             f"If you cannot answer at all, set both to false and return an empty or generic answer.\n"
             f"Context:\n{full_context}\n\n"
