@@ -543,6 +543,92 @@ ${JSON.stringify(chartData.data, null, 2)}
     }
   };
 
+  // Add new chart creation functions for tables and excels
+  const createChartFromTable = async (tableId: string, chartType?: string, exportFormat?: string) => {
+    setIsCreatingChart(true);
+    try {
+      const table = tables.find(tbl => tbl.id === tableId);
+      if (!table || !table.pageTitle) throw new Error('Table not found or missing page title');
+      const currentChartType = chartType || selectedChartType;
+      const currentExportFormat = exportFormat || chartExportFormat;
+      const chartTypeMap = {
+        'bar': 'Grouped Bar',
+        'line': 'Line',
+        'pie': 'Pie',
+        'stacked': 'Stacked Bar'
+      };
+      const response = await apiService.createChart({
+        space_key: spaceKey,
+        page_title: table.pageTitle,
+        table_html: table.html,
+        chart_type: chartTypeMap[currentChartType as keyof typeof chartTypeMap],
+        filename: chartFileName || 'chart',
+        format: currentExportFormat
+      });
+      const binaryString = atob(response.chart_data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: response.mime_type });
+      const chartUrl = URL.createObjectURL(blob);
+      setChartData({
+        type: currentChartType as any,
+        data: { chartUrl, filename: response.filename, exportFormat: currentExportFormat, tableId },
+        title: `Generated ${currentChartType.charAt(0).toUpperCase() + currentChartType.slice(1)} Chart`
+      });
+      setTimeout(() => {
+        chartPreviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    } catch (error) {
+      console.error('Failed to create chart from table:', error);
+    } finally {
+      setIsCreatingChart(false);
+    }
+  };
+  const createChartFromExcel = async (excelId: string, chartType?: string, exportFormat?: string) => {
+    setIsCreatingChart(true);
+    try {
+      const excel = excels.find(xls => xls.id === excelId);
+      if (!excel || !excel.pageTitle) throw new Error('Excel not found or missing page title');
+      const currentChartType = chartType || selectedChartType;
+      const currentExportFormat = exportFormat || chartExportFormat;
+      const chartTypeMap = {
+        'bar': 'Grouped Bar',
+        'line': 'Line',
+        'pie': 'Pie',
+        'stacked': 'Stacked Bar'
+      };
+      const response = await apiService.createChart({
+        space_key: spaceKey,
+        page_title: excel.pageTitle,
+        excel_url: excel.url,
+        chart_type: chartTypeMap[currentChartType as keyof typeof chartTypeMap],
+        filename: chartFileName || 'chart',
+        format: currentExportFormat
+      });
+      const binaryString = atob(response.chart_data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: response.mime_type });
+      const chartUrl = URL.createObjectURL(blob);
+      setChartData({
+        type: currentChartType as any,
+        data: { chartUrl, filename: response.filename, exportFormat: currentExportFormat, excelId },
+        title: `Generated ${currentChartType.charAt(0).toUpperCase() + currentChartType.slice(1)} Chart`
+      });
+      setTimeout(() => {
+        chartPreviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    } catch (error) {
+      console.error('Failed to create chart from excel:', error);
+    } finally {
+      setIsCreatingChart(false);
+    }
+  };
+
   const handlePageSelection = (page: string) => {
     setSelectedPages(prev =>
       prev.includes(page)
@@ -747,10 +833,11 @@ ${JSON.stringify(chartData.data, null, 2)}
                 </button>
               </div>
             </div>
-            {/* Middle Column - Images Grid */}
+            {/* Middle Column - Images Grid (now also shows tables and excels) */}
             <div className="xl:col-span-2 space-y-6">
-              {images.length > 0 ? (
+              {(images.length > 0 || tables.length > 0 || excels.length > 0) ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Images */}
                   {images.map(image => (
                     <div key={image.id} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                       <div className="aspect-video bg-gray-200/50 backdrop-blur-sm rounded-lg mb-4 overflow-hidden border border-white/20">
@@ -795,12 +882,71 @@ ${JSON.stringify(chartData.data, null, 2)}
                       )}
                     </div>
                   ))}
+                  {/* Tables */}
+                  {tables.map(table => (
+                    <div key={table.id} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                      <div className="aspect-video bg-gray-200/50 backdrop-blur-sm rounded-lg mb-4 overflow-auto border border-white/20 flex items-center justify-center">
+                        <div style={{width: '100%', overflowX: 'auto'}} dangerouslySetInnerHTML={{ __html: table.html }} />
+                      </div>
+                      <h4 className="font-semibold text-gray-800 mb-2">{table.name}</h4>
+                      <div className="space-y-2">
+                        {isCreatingChart && (
+                          <div className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg flex items-center justify-center space-x-2 border border-white/10">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Creating Chart...</span>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => createChartFromTable(table.id, selectedChartType, chartExportFormat)}
+                          disabled={isCreatingChart}
+                          className="w-full bg-green-600/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 border border-white/10"
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                          <span>Create Graph</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Excels */}
+                  {excels.map(excel => (
+                    <div key={excel.id} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg flex flex-col items-center justify-center">
+                      <div className="aspect-video bg-gray-200/50 backdrop-blur-sm rounded-lg mb-4 flex items-center justify-center border border-white/20">
+                        <span className="text-confluence-blue text-4xl"><BarChart3 /></span>
+                      </div>
+                      <h4 className="font-semibold text-gray-800 mb-2">{excel.name}</h4>
+                      <a
+                        href={excel.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full bg-confluence-blue/90 text-white py-2 px-4 rounded-lg hover:bg-confluence-blue transition-colors border border-white/10 text-center mt-2"
+                        download
+                      >
+                        Download Excel
+                      </a>
+                      <div className="space-y-2 w-full mt-2">
+                        {isCreatingChart && (
+                          <div className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg flex items-center justify-center space-x-2 border border-white/10">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Creating Chart...</span>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => createChartFromExcel(excel.id, selectedChartType, chartExportFormat)}
+                          disabled={isCreatingChart}
+                          className="w-full bg-green-600/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 border border-white/10"
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                          <span>Create Graph</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="text-center py-12">
                   <Image className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-600 mb-2">No Images Loaded</h3>
-                  <p className="text-gray-500">Select a space and pages to load embedded images for analysis.</p>
+                  <p className="text-gray-500">Select a space and pages to load embedded images, tables, or Excel files for analysis.</p>
                 </div>
               )}
               {/* Chart Preview Section */}

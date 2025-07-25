@@ -115,7 +115,9 @@ export interface ImageSummaryRequest {
 export interface ChartRequest {
   space_key: string;
   page_title: string;
-  image_url: string;
+  image_url?: string;
+  table_html?: string;
+  excel_url?: string;
   chart_type: string;
   filename: string;
   format: string;

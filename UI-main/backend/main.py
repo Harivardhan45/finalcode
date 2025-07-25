@@ -94,7 +94,9 @@ class ImageSummaryRequest(BaseModel):
 class ChartRequest(BaseModel):
     space_key: str
     page_title: str
-    image_url: str
+    image_url: Optional[str] = None
+    table_html: Optional[str] = None
+    excel_url: Optional[str] = None
     chart_type: str
     filename: str
     format: str
@@ -1152,74 +1154,87 @@ async def image_qa(request: ImageSummaryRequest, req: Request):
 
 @app.post("/create-chart")
 async def create_chart(request: ChartRequest, req: Request):
-    """Create chart from image data"""
+    """Create chart from image, table, or Excel data"""
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
         ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
-        
         import pandas as pd
         import matplotlib.pyplot as plt
         import seaborn as sns
         from io import StringIO
-        
-        # Download image
-        auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
-        response = requests.get(request.image_url, auth=auth)
-        if response.status_code != 200:
-            raise HTTPException(status_code=404, detail="Failed to fetch image")
-        
-        image_bytes = response.content
-        
-        # Upload to Gemini for data extraction
         import tempfile
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-            tmp_img.write(image_bytes)
-            tmp_img.flush()
-            uploaded_img = genai.upload_file(
-                path=tmp_img.name,
-                mime_type="image/png",
-                display_name=f"chart_image_{request.page_title}.png"
+        import requests
+        import base64
+        import io
+        # Priority: excel_url > table_html > image_url
+        df = None
+        if request.excel_url:
+            # Download and read Excel file
+            auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
+            response = requests.get(request.excel_url, auth=auth)
+            if response.status_code != 200:
+                raise HTTPException(status_code=404, detail="Failed to fetch Excel file")
+            excel_bytes = response.content
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_xls:
+                tmp_xls.write(excel_bytes)
+                tmp_xls.flush()
+                df = pd.read_excel(tmp_xls.name)
+        elif request.table_html:
+            # Parse HTML table to DataFrame
+            dfs = pd.read_html(request.table_html)
+            if not dfs:
+                raise HTTPException(status_code=400, detail="No table found in HTML")
+            df = dfs[0]
+        elif request.image_url:
+            # Existing image logic
+            auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
+            response = requests.get(request.image_url, auth=auth)
+            if response.status_code != 200:
+                raise HTTPException(status_code=404, detail="Failed to fetch image")
+            image_bytes = response.content
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+                tmp_img.write(image_bytes)
+                tmp_img.flush()
+                uploaded_img = genai.upload_file(
+                    path=tmp_img.name,
+                    mime_type="image/png",
+                    display_name=f"chart_image_{request.page_title}.png"
+                )
+            graph_prompt = (
+                "You're looking at a Likert-style bar chart image or table. Extract the full numeric table represented by the chart.\n"
+                "Return only the raw CSV table: no markdown, no comments, no code blocks.\n"
+                "The first column must be the response category (e.g., Strongly Agree), followed by columns for group counts (e.g., Students, Lecturers, Staff, Total).\n"
+                "Ensure all values are numeric and the CSV is properly aligned. Do NOT summarize—just output the table."
             )
-        
-        graph_prompt = (
-            "You're looking at a Likert-style bar chart image or table. Extract the full numeric table represented by the chart.\n"
-            "Return only the raw CSV table: no markdown, no comments, no code blocks.\n"
-            "The first column must be the response category (e.g., Strongly Agree), followed by columns for group counts (e.g., Students, Lecturers, Staff, Total).\n"
-            "Ensure all values are numeric and the CSV is properly aligned. Do NOT summarize—just output the table."
-        )
-        
-        graph_response = ai_model.generate_content([uploaded_img, graph_prompt])
-        csv_text = graph_response.text.strip()
-        
-        # Clean CSV data
-        def clean_ai_csv(raw_text):
-            lines = raw_text.strip().splitlines()
-            clean_lines = [
-                line.strip() for line in lines
-                if ',' in line and not line.strip().startswith("```") and not line.lower().startswith("here")
-            ]
-            header = clean_lines[0].split(",")
-            cleaned_data = [clean_lines[0]]
-            for line in clean_lines[1:]:
-                if line.split(",")[0] != header[0]:
-                    cleaned_data.append(line)
-            return "\n".join(cleaned_data)
-        
-        cleaned_csv = clean_ai_csv(csv_text)
-        df = pd.read_csv(StringIO(cleaned_csv))
-        
+            graph_response = ai_model.generate_content([uploaded_img, graph_prompt])
+            csv_text = graph_response.text.strip()
+            def clean_ai_csv(raw_text):
+                lines = raw_text.strip().splitlines()
+                clean_lines = [
+                    line.strip() for line in lines
+                    if ',' in line and not line.strip().startswith("```") and not line.lower().startswith("here")
+                ]
+                header = clean_lines[0].split(",")
+                cleaned_data = [clean_lines[0]]
+                for line in clean_lines[1:]:
+                    if line.split(",")[0] != header[0]:
+                        cleaned_data.append(line)
+                return "\n".join(cleaned_data)
+            cleaned_csv = clean_ai_csv(csv_text)
+            df = pd.read_csv(StringIO(cleaned_csv))
+        else:
+            raise HTTPException(status_code=400, detail="No data source provided for chart generation")
+        # Clean and process DataFrame
         for col in df.columns[1:]:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-        
         df.dropna(subset=df.columns[1:], how='all', inplace=True)
-        
         if df.empty:
-            raise HTTPException(status_code=400, detail="Failed to extract chart data from image")
-        
+            raise HTTPException(status_code=400, detail="Failed to extract chart data from provided source")
         # Create chart based on type
+        plt.clf()
         if request.chart_type == "Grouped Bar":
             melted = df.melt(id_vars=[df.columns[0]], var_name="Group", value_name="Count")
             plt.figure(figsize=(10, 6))
@@ -1253,22 +1268,18 @@ async def create_chart(request: ChartRequest, req: Request):
             plt.pie(data, labels=df[label_col], autopct="%1.1f%%", startangle=140)
             plt.title("Pie Chart (Total Responses)")
             plt.tight_layout()
-        
         # Save chart to bytes
         buf = io.BytesIO()
         plt.savefig(buf, format=request.format.lower(), bbox_inches="tight")
         buf.seek(0)
         chart_bytes = buf.getvalue()
-        
         # Convert to base64 for response
         chart_base64 = base64.b64encode(chart_bytes).decode()
-        
         return {
             "chart_data": chart_base64,
             "mime_type": f"image/{request.format.lower()}",
             "filename": f"{request.filename}.{request.format.lower()}"
         }
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
