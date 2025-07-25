@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TestTube, BarChart3, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image } from 'lucide-react';
+import { TestTube, BarChart3, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image, ChevronUp, Check } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
@@ -35,6 +35,10 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   const [pages, setPages] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [codePageSearch, setCodePageSearch] = useState('');
+  const [isCodePageDropdownOpen, setIsCodePageDropdownOpen] = useState(false);
+  const [testInputPageSearch, setTestInputPageSearch] = useState('');
+  const [isTestInputPageDropdownOpen, setIsTestInputPageDropdownOpen] = useState(false);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -358,37 +362,106 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                     Code Page
                   </label>
                   <div className="relative">
-                    <select
-                      value={codePage}
-                      onChange={(e) => setCodePage(e.target.value)}
-                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm"
+                    <button
+                      type="button"
+                      onClick={() => setIsCodePageDropdownOpen(!isCodePageDropdownOpen)}
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between"
                     >
-                      <option value="">Select code page...</option>
-                      {pages.map(page => (
-                        <option key={page} value={page}>{page}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                      <span className={codePage === '' ? 'text-gray-500' : 'text-gray-700'}>
+                        {codePage === '' ? 'Select code page...' : codePage}
+                      </span>
+                      {isCodePageDropdownOpen ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {isCodePageDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                        <div className="p-3 border-b border-white/20 bg-white/50">
+                          <input
+                            type="text"
+                            value={codePageSearch}
+                            onChange={e => setCodePageSearch(e.target.value)}
+                            placeholder="Search pages..."
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                          />
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {(pages.filter(page => page.toLowerCase().includes(codePageSearch.toLowerCase()))).length === 0 ? (
+                            <div className="p-3 text-gray-500 text-sm text-center">
+                              No pages found
+                            </div>
+                          ) : (
+                            pages.filter(page => page.toLowerCase().includes(codePageSearch.toLowerCase())).map(page => (
+                              <button
+                                key={page}
+                                type="button"
+                                onClick={() => { setCodePage(page); setIsCodePageDropdownOpen(false); setCodePageSearch(''); }}
+                                className={`w-full text-left flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${codePage === page ? 'bg-confluence-blue/10' : ''}`}
+                              >
+                                <span className="text-sm text-gray-700 flex-1">{page}</span>
+                                {codePage === page && <Check className="w-4 h-4 text-confluence-blue" />}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-
                 {/* Test Input Page Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Test Input Page
                   </label>
                   <div className="relative">
-                    <select
-                      value={testInputPage}
-                      onChange={(e) => setTestInputPage(e.target.value)}
-                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm"
+                    <button
+                      type="button"
+                      onClick={() => setIsTestInputPageDropdownOpen(!isTestInputPageDropdownOpen)}
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between"
                     >
-                      <option value="">Select test page...</option>
-                      {pages.map(page => (
-                        <option key={page} value={page}>{page}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                      <span className={testInputPage === '' ? 'text-gray-500' : 'text-gray-700'}>
+                        {testInputPage === '' ? 'Select test page...' : testInputPage}
+                      </span>
+                      {isTestInputPageDropdownOpen ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {isTestInputPageDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                        <div className="p-3 border-b border-white/20 bg-white/50">
+                          <input
+                            type="text"
+                            value={testInputPageSearch}
+                            onChange={e => setTestInputPageSearch(e.target.value)}
+                            placeholder="Search pages..."
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                          />
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {(pages.filter(page => page.toLowerCase().includes(testInputPageSearch.toLowerCase()))).length === 0 ? (
+                            <div className="p-3 text-gray-500 text-sm text-center">
+                              No pages found
+                            </div>
+                          ) : (
+                            pages.filter(page => page.toLowerCase().includes(testInputPageSearch.toLowerCase())).map(page => (
+                              <button
+                                key={page}
+                                type="button"
+                                onClick={() => { setTestInputPage(page); setIsTestInputPageDropdownOpen(false); setTestInputPageSearch(''); }}
+                                className={`w-full text-left flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${testInputPage === page ? 'bg-confluence-blue/10' : ''}`}
+                              >
+                                <span className="text-sm text-gray-700 flex-1">{page}</span>
+                                {testInputPage === page && <Check className="w-4 h-4 text-confluence-blue" />}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

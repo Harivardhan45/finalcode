@@ -955,7 +955,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                   ) : (
                     <>
                       <Image className="w-5 h-5" />
-                      <span>Load Images</span>
+                      <span>Load</span>
                     </>
                   )}
                 </button>

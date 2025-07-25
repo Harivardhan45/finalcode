@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, BarChart3, GitCompare, AlertTriangle, CheckCircle, X, ChevronDown, Loader2, Download, Save, MessageSquare, Search, Video, Code, TestTube, Image } from 'lucide-react';
+import { TrendingUp, BarChart3, GitCompare, AlertTriangle, CheckCircle, X, ChevronDown, Loader2, Download, Save, MessageSquare, Search, Video, Code, TestTube, Image, ChevronUp, Check } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
@@ -44,6 +44,10 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
   const [pages, setPages] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [oldPageSearch, setOldPageSearch] = useState('');
+  const [isOldPageDropdownOpen, setIsOldPageDropdownOpen] = useState(false);
+  const [newPageSearch, setNewPageSearch] = useState('');
+  const [isNewPageDropdownOpen, setIsNewPageDropdownOpen] = useState(false);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -336,39 +340,108 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                     Old Version
                   </label>
                   <div className="relative">
-                    <select
-                      value={oldPage}
-                      onChange={(e) => setOldPage(e.target.value)}
-                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm"
+                    <button
+                      type="button"
+                      onClick={() => setIsOldPageDropdownOpen(!isOldPageDropdownOpen)}
                       disabled={!selectedSpace}
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
-                      <option value="">Select old version...</option>
-                      {pages.map(page => (
-                        <option key={page} value={page}>{page}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                      <span className={oldPage === '' ? 'text-gray-500' : 'text-gray-700'}>
+                        {oldPage === '' ? 'Select old version...' : oldPage}
+                      </span>
+                      {isOldPageDropdownOpen ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {isOldPageDropdownOpen && selectedSpace && (
+                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                        <div className="p-3 border-b border-white/20 bg-white/50">
+                          <input
+                            type="text"
+                            value={oldPageSearch}
+                            onChange={e => setOldPageSearch(e.target.value)}
+                            placeholder="Search pages..."
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                          />
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {(pages.filter(page => page.toLowerCase().includes(oldPageSearch.toLowerCase()))).length === 0 ? (
+                            <div className="p-3 text-gray-500 text-sm text-center">
+                              No pages found in this space
+                            </div>
+                          ) : (
+                            pages.filter(page => page.toLowerCase().includes(oldPageSearch.toLowerCase())).map(page => (
+                              <button
+                                key={page}
+                                type="button"
+                                onClick={() => { setOldPage(page); setIsOldPageDropdownOpen(false); setOldPageSearch(''); }}
+                                className={`w-full text-left flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${oldPage === page ? 'bg-confluence-blue/10' : ''}`}
+                              >
+                                <span className="text-sm text-gray-700 flex-1">{page}</span>
+                                {oldPage === page && <Check className="w-4 h-4 text-confluence-blue" />}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-
                 {/* New Version Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     New Version
                   </label>
                   <div className="relative">
-                    <select
-                      value={newPage}
-                      onChange={(e) => setNewPage(e.target.value)}
-                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm"
+                    <button
+                      type="button"
+                      onClick={() => setIsNewPageDropdownOpen(!isNewPageDropdownOpen)}
                       disabled={!selectedSpace}
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
-                      <option value="">Select new version...</option>
-                      {pages.map(page => (
-                        <option key={page} value={page}>{page}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                      <span className={newPage === '' ? 'text-gray-500' : 'text-gray-700'}>
+                        {newPage === '' ? 'Select new version...' : newPage}
+                      </span>
+                      {isNewPageDropdownOpen ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {isNewPageDropdownOpen && selectedSpace && (
+                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                        <div className="p-3 border-b border-white/20 bg-white/50">
+                          <input
+                            type="text"
+                            value={newPageSearch}
+                            onChange={e => setNewPageSearch(e.target.value)}
+                            placeholder="Search pages..."
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                          />
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {(pages.filter(page => page.toLowerCase().includes(newPageSearch.toLowerCase()))).length === 0 ? (
+                            <div className="p-3 text-gray-500 text-sm text-center">
+                              No pages found in this space
+                            </div>
+                          ) : (
+                            pages.filter(page => page.toLowerCase().includes(newPageSearch.toLowerCase())).map(page => (
+                              <button
+                                key={page}
+                                type="button"
+                                onClick={() => { setNewPage(page); setIsNewPageDropdownOpen(false); setNewPageSearch(''); }}
+                                className={`w-full text-left flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${newPage === page ? 'bg-confluence-blue/10' : ''}`}
+                              >
+                                <span className="text-sm text-gray-700 flex-1">{page}</span>
+                                {newPage === page && <Check className="w-4 h-4 text-confluence-blue" />}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
