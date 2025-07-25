@@ -977,20 +977,26 @@ ${JSON.stringify(chartData.data, null, 2)}
                       </div>
                       <h4 className="font-semibold text-gray-800 mb-2">{table.name}</h4>
                       <div className="space-y-2">
-                        {isCreatingChart && (
+                        {!table.summary ? (
+                          <div className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg flex items-center justify-center space-x-2 border border-white/10">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Summarizing...</span>
+                          </div>
+                        ) : isCreatingChart ? (
                           <div className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg flex items-center justify-center space-x-2 border border-white/10">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span>Creating Chart...</span>
                           </div>
+                        ) : (
+                          <button
+                            onClick={() => createChartFromTable(table.id, selectedChartType, chartExportFormat)}
+                            disabled={isCreatingChart}
+                            className="w-full bg-green-600/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 border border-white/10"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                            <span>Create Graph</span>
+                          </button>
                         )}
-                        <button
-                          onClick={() => createChartFromTable(table.id, selectedChartType, chartExportFormat)}
-                          disabled={isCreatingChart}
-                          className="w-full bg-green-600/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 border border-white/10"
-                        >
-                          <BarChart3 className="w-4 h-4" />
-                          <span>Create Graph</span>
-                        </button>
                       </div>
                       {/* Table summary and Q&A */}
                       {table.summary && (
@@ -1030,20 +1036,26 @@ ${JSON.stringify(chartData.data, null, 2)}
                         Download Excel
                       </a>
                       <div className="space-y-2 w-full mt-2">
-                        {isCreatingChart && (
+                        {!excel.summary ? (
+                          <div className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg flex items-center justify-center space-x-2 border border-white/10">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Summarizing...</span>
+                          </div>
+                        ) : isCreatingChart ? (
                           <div className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg flex items-center justify-center space-x-2 border border-white/10">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span>Creating Chart...</span>
                           </div>
+                        ) : (
+                          <button
+                            onClick={() => createChartFromExcel(excel.id, selectedChartType, chartExportFormat)}
+                            disabled={isCreatingChart}
+                            className="w-full bg-green-600/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 border border-white/10"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                            <span>Create Graph</span>
+                          </button>
                         )}
-                        <button
-                          onClick={() => createChartFromExcel(excel.id, selectedChartType, chartExportFormat)}
-                          disabled={isCreatingChart}
-                          className="w-full bg-green-600/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 border border-white/10"
-                        >
-                          <BarChart3 className="w-4 h-4" />
-                          <span>Create Graph</span>
-                        </button>
                       </div>
                       {/* Excel summary and Q&A */}
                       {excel.summary && (
