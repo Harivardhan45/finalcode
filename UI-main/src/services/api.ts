@@ -146,6 +146,12 @@ export interface SaveToConfluenceResponse {
   message?: string;
 }
 
+export interface InsightSourcesResponse {
+  images: string[];
+  tables: string[]; // HTML strings
+  excels: string[]; // URLs
+}
+
 class ApiService {
   private getSelectedApiKey(): string | undefined {
     if (typeof window !== 'undefined' && localStorage.getItem('selectedApiKeyId')) {
@@ -218,8 +224,8 @@ class ApiService {
     });
   }
 
-  async getImages(spaceKey: string, pageTitle: string): Promise<{ images: string[] }> {
-    return this.makeRequest<{ images: string[] }>(`/images/${spaceKey}/${encodeURIComponent(pageTitle)}`);
+  async getImages(spaceKey: string, pageTitle: string): Promise<InsightSourcesResponse> {
+    return this.makeRequest<InsightSourcesResponse>(`/images/${spaceKey}/${encodeURIComponent(pageTitle)}`);
   }
 
   async imageSummary(request: ImageRequest): Promise<ImageResponse> {

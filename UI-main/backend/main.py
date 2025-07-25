@@ -1014,7 +1014,7 @@ Respond **exactly** in this format with dynamic insights, no extra text outside 
 
 @app.get("/images/{space_key}/{page_title}")
 async def get_images(space_key: Optional[str] = None, page_title: str = ""):
-    """Get all images from a specific page"""
+    """Get all images, tables, and Excel attachments from a specific page"""
     try:
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, space_key)
@@ -1031,12 +1031,32 @@ async def get_images(space_key: Optional[str] = None, page_title: str = ""):
         soup = BeautifulSoup(html_content, "html.parser")
         base_url = os.getenv("CONFLUENCE_BASE_URL")
         
+        # Images
         image_urls = list({
             base_url + img["src"] if img["src"].startswith("/") else img["src"]
             for img in soup.find_all("img") if img.get("src")
         })
         
-        return {"images": image_urls}
+        # Tables (as HTML strings)
+        tables = [str(table) for table in soup.find_all("table")]
+        
+        # Excel attachments
+        excels = []
+        try:
+            attachments = confluence.get_attachments_from_content(page_id=page_id, start=0, limit=100)
+            for att in attachments.get("results", []):
+                title = att.get("title", "")
+                if title.lower().endswith((".xls", ".xlsx")):
+                    # Compose download URL
+                    download_link = att["_links"].get("download")
+                    if download_link:
+                        url = base_url.rstrip("/") + download_link
+                        excels.append(url)
+        except Exception as e:
+            # If attachment fetch fails, just skip excels
+            pass
+        
+        return {"images": image_urls, "tables": tables, "excels": excels}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

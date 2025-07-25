@@ -29,6 +29,20 @@ interface ChartData {
   title: string;
 }
 
+interface TableData {
+  id: string;
+  name: string;
+  html: string;
+  pageTitle?: string;
+}
+
+interface ExcelData {
+  id: string;
+  name: string;
+  url: string;
+  pageTitle?: string;
+}
+
 const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect, onModeSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   const [spaceKey, setSpaceKey] = useState<string>('');
   const [selectedPages, setSelectedPages] = useState<string[]>([]);
@@ -54,6 +68,8 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [showToast, setShowToast] = useState(false);
   const chartPreviewRef = useRef<HTMLDivElement>(null);
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
+  const [tables, setTables] = useState<TableData[]>([]);
+  const [excels, setExcels] = useState<ExcelData[]>([]);
 
   // Load spaces on component mount
   useEffect(() => {
@@ -125,29 +141,47 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const loadImages = async () => {
     if (!spaceKey || selectedPages.length === 0) return;
     setIsLoadingImages(true);
-    
     try {
       const allImages: ImageData[] = [];
-      
+      const allTables: TableData[] = [];
+      const allExcels: ExcelData[] = [];
       for (const pageTitle of selectedPages) {
         try {
           const response = await apiService.getImages(spaceKey, pageTitle);
+          // Images
           const pageImages = response.images.map((url, index) => ({
-            id: `${pageTitle}_${index}`,
+            id: `${pageTitle}_img_${index}`,
             name: `Image ${index + 1} from ${pageTitle}`,
             url,
             pageTitle,
             qa: []
           }));
           allImages.push(...pageImages);
+          // Tables
+          const pageTables = response.tables.map((html, index) => ({
+            id: `${pageTitle}_tbl_${index}`,
+            name: `Table ${index + 1} from ${pageTitle}`,
+            html,
+            pageTitle
+          }));
+          allTables.push(...pageTables);
+          // Excels
+          const pageExcels = response.excels.map((url, index) => ({
+            id: `${pageTitle}_xls_${index}`,
+            name: `Excel ${index + 1} from ${pageTitle}`,
+            url,
+            pageTitle
+          }));
+          allExcels.push(...pageExcels);
         } catch (error) {
-          console.error(`Failed to load images from page ${pageTitle}:`, error);
+          console.error(`Failed to load insights from page ${pageTitle}:`, error);
         }
       }
-      
       setImages(allImages);
+      setTables(allTables);
+      setExcels(allExcels);
     } catch (error) {
-      console.error('Failed to load images:', error);
+      console.error('Failed to load insights:', error);
     } finally {
       setIsLoadingImages(false);
     }
