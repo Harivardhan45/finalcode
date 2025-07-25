@@ -849,7 +849,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages ({selectedPages.length} selected)
                   </label>
-                  <div className="relative">
+                  <div className="relative z-50">
                     <button
                       type="button"
                       onClick={() => setIsPageDropdownOpen(!isPageDropdownOpen)}
@@ -872,7 +872,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                     </button>
                     {/* Dropdown */}
                     {isPageDropdownOpen && spaceKey && (
-                      <div className="absolute z-10 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
                         {/* Header with Select All/Clear All */}
                         <div className="p-3 border-b border-white/20 bg-white/50">
                           <div className="flex justify-between items-center">
