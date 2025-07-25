@@ -1030,19 +1030,6 @@ ${JSON.stringify(chartData.data, null, 2)}
                       {table.summary && (
                         <div className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
                           <p className="text-sm text-gray-700">{table.summary}</p>
-                          <div className="mt-2">
-                            <form onSubmit={e => { e.preventDefault(); const q = (e.target as any).elements.q.value; addTableQuestion(table.id, q); (e.target as any).reset(); }} className="flex gap-2">
-                              <input name="q" type="text" placeholder="Ask a question about this table..." className="flex-1 p-2 border rounded" />
-                              <button type="submit" className="bg-confluence-blue text-white px-3 py-1 rounded">Ask</button>
-                            </form>
-                            {table.qa && table.qa.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                {table.qa.map((qa, i) => (
-                                  <div key={i} className="text-xs text-gray-800"><b>Q:</b> {qa.question}<br /><b>A:</b> {qa.answer}</div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
                         </div>
                       )}
                     </div>
@@ -1089,19 +1076,6 @@ ${JSON.stringify(chartData.data, null, 2)}
                       {excel.summary && (
                         <div className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
                           <p className="text-sm text-gray-700">{excel.summary}</p>
-                          <div className="mt-2">
-                            <form onSubmit={e => { e.preventDefault(); const q = (e.target as any).elements.q.value; addExcelQuestion(excel.id, q); (e.target as any).reset(); }} className="flex gap-2">
-                              <input name="q" type="text" placeholder="Ask a question about this Excel..." className="flex-1 p-2 border rounded" />
-                              <button type="submit" className="bg-confluence-blue text-white px-3 py-1 rounded">Ask</button>
-                            </form>
-                            {excel.qa && excel.qa.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                {excel.qa.map((qa, i) => (
-                                  <div key={i} className="text-xs text-gray-800"><b>Q:</b> {qa.question}<br /><b>A:</b> {qa.answer}</div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
                         </div>
                       )}
                     </div>
