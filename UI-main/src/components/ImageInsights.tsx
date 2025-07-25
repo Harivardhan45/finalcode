@@ -810,10 +810,10 @@ ${JSON.stringify(chartData.data, null, 2)}
           </div>
         </div>
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 overflow-visible">
             {/* Left Column - Image Selection */}
-            <div className="xl:col-span-1">
-              <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 space-y-6 border border-white/20 shadow-lg">
+            <div className="xl:col-span-1 z-50 overflow-visible">
+              <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 space-y-6 border border-white/20 shadow-lg overflow-visible">
                 <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                   <Eye className="w-5 h-5 mr-2" />
                   Image Selection
@@ -849,7 +849,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages ({selectedPages.length} selected)
                   </label>
-                  <div className="relative z-50">
+                  <div className="relative z-50 overflow-visible">
                     <button
                       type="button"
                       onClick={() => setIsPageDropdownOpen(!isPageDropdownOpen)}
@@ -872,7 +872,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                     </button>
                     {/* Dropdown */}
                     {isPageDropdownOpen && spaceKey && (
-                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-auto">
                         {/* Header with Select All/Clear All */}
                         <div className="p-3 border-b border-white/20 bg-white/50">
                           <div className="flex justify-between items-center">
