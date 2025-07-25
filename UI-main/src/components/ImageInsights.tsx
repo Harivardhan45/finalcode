@@ -137,7 +137,7 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     { id: 'code' as const, label: 'Code Assistant', icon: Code },
     { id: 'impact' as const, label: 'Impact Analyzer', icon: TrendingUp },
     { id: 'test' as const, label: 'Test Support Tool', icon: TestTube },
-    { id: 'image' as const, label: 'Image Insights & Chart Builder', icon: Image },
+    { id: 'image' as const, label: 'Chart Builder', icon: Image },
   ];
 
 
@@ -816,7 +816,12 @@ ${JSON.stringify(chartData.data, null, 2)}
               <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 space-y-6 border border-white/20 shadow-lg overflow-visible">
                 <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                   <Eye className="w-5 h-5 mr-2" />
-                  Image Selection
+                  {selectedQAItem ?
+                    selectedQAItem.type === 'image' ? 'Image Source Selection' :
+                    selectedQAItem.type === 'table' ? 'Table Source Selection' :
+                    selectedQAItem.type === 'excel' ? 'Excel Source Selection' :
+                    'Source Selection'
+                  : 'Source Selection'}
                 </h3>
                 {/* Space Key Input */}
                 <div>
@@ -1238,12 +1243,22 @@ ${JSON.stringify(chartData.data, null, 2)}
               <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 space-y-4 border border-white/20 shadow-lg">
                 <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                   <MessageSquare className="w-5 h-5 mr-2" />
-                  Image Q&A
+                  {selectedQAItem ?
+                    selectedQAItem.type === 'image' ? 'Image Q&A' :
+                    selectedQAItem.type === 'table' ? 'Table Q&A' :
+                    selectedQAItem.type === 'excel' ? 'Excel Q&A' :
+                    'Q&A'
+                  : 'Q&A'}
                 </h3>
                 {/* Image Selection for Q&A */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Item for Questions
+                    {selectedQAItem ?
+                      selectedQAItem.type === 'image' ? 'Select Image for Questions' :
+                      selectedQAItem.type === 'table' ? 'Select Table for Questions' :
+                      selectedQAItem.type === 'excel' ? 'Select Excel for Questions' :
+                      'Select Item for Questions'
+                    : 'Select Item for Questions'}
                   </label>
                   <div className="relative">
                     <select
@@ -1266,7 +1281,12 @@ ${JSON.stringify(chartData.data, null, 2)}
                       value={newQuestion}
                       onChange={setNewQuestion}
                       onConfirm={setNewQuestion}
-                      inputPlaceholder="Ask about the selected item..."
+                      inputPlaceholder={selectedQAItem ?
+                        selectedQAItem.type === 'image' ? 'Ask about the selected image...' :
+                        selectedQAItem.type === 'table' ? 'Ask about the selected table...' :
+                        selectedQAItem.type === 'excel' ? 'Ask about the selected excel...' :
+                        'Ask about the selected item...'
+                      : 'Ask about the selected item...'}
                     />
                   </div>
                   <button
@@ -1300,7 +1320,11 @@ ${JSON.stringify(chartData.data, null, 2)}
                 {/* Q&A Display */}
                 {selectedQAItem && (
                   <div className="pt-4 border-t border-white/20 space-y-3">
-                    <h4 className="font-semibold text-gray-800">Questions & Answers</h4>
+                    <h4 className="font-semibold text-gray-800">
+                      {selectedQAItem.type === 'image' ? 'Image' :
+                       selectedQAItem.type === 'table' ? 'Table' :
+                       selectedQAItem.type === 'excel' ? 'Excel' : 'Item'} Questions & Answers
+                    </h4>
                     {selectedQAItem.qa.length === 0 ? (
                       <div className="text-center py-4">
                         <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
@@ -1320,7 +1344,14 @@ ${JSON.stringify(chartData.data, null, 2)}
                 )}
                 {/* Export Options */}
                 <div className="pt-4 border-t border-white/20 space-y-3">
-                  <h4 className="font-semibold text-gray-800">Export Image Analysis</h4>
+                  <h4 className="font-semibold text-gray-800">
+                    {selectedQAItem ?
+                      selectedQAItem.type === 'image' ? 'Export Image Analysis' :
+                      selectedQAItem.type === 'table' ? 'Export Table Analysis' :
+                      selectedQAItem.type === 'excel' ? 'Export Excel Analysis' :
+                      'Export Analysis'
+                    : 'Export Analysis'}
+                  </h4>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       File Name
@@ -1421,7 +1452,7 @@ ${excel.url}
                         className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-green-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-green-700 transition-colors border border-white/10"
                       >
                         <Download className="w-4 h-4" />
-                        <span>Export {item.name}</span>
+                        <span>Export {item.type === 'image' ? 'Image' : item.type === 'table' ? 'Table' : item.type === 'excel' ? 'Excel' : 'Item'}: {item.name}</span>
                       </button>
                     ))}
                   </div>
@@ -1454,7 +1485,11 @@ ${excel.url}
                     className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10 mt-2"
                   >
                     <Save className="w-4 h-4" />
-                    <span>Save Summary to Confluence</span>
+                    <span>Save {selectedQAItem ?
+                      selectedQAItem.type === 'image' ? 'Image' :
+                      selectedQAItem.type === 'table' ? 'Table' :
+                      selectedQAItem.type === 'excel' ? 'Excel' : 'Item'
+                    : 'Item'} Summary to Confluence</span>
                   </button>
                 )}
               </div>
