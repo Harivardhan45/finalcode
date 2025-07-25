@@ -730,6 +730,34 @@ ${JSON.stringify(chartData.data, null, 2)}
     }
   };
 
+  // Helper to get all Q&A items
+  const allQAItems = [
+    ...images.filter(img => img.summary).map(img => ({
+      id: img.id,
+      type: 'image' as const,
+      name: img.name,
+      summary: img.summary,
+      qa: img.qa || [],
+    })),
+    ...tables.filter(tbl => tbl.summary).map(tbl => ({
+      id: tbl.id,
+      type: 'table' as const,
+      name: tbl.name,
+      summary: tbl.summary,
+      qa: tbl.qa || [],
+    })),
+    ...excels.filter(xls => xls.summary).map(xls => ({
+      id: xls.id,
+      type: 'excel' as const,
+      name: xls.name,
+      summary: xls.summary,
+      qa: xls.qa || [],
+    })),
+  ];
+
+  // Define selectedQAItem before Q&A section
+  const selectedQAItem = allQAItems.find(item => item.id === selectedImage);
+
   return (
     <div className="fixed inset-0 bg-white flex items-center justify-center z-40 p-4">
       <div className="bg-white/80 backdrop-blur-xl border-2 border-[#DFE1E6] rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
@@ -1241,7 +1269,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                 {/* Image Selection for Q&A */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Image for Questions
+                    Select Item for Questions
                   </label>
                   <div className="relative">
                     <select
@@ -1249,9 +1277,9 @@ ${JSON.stringify(chartData.data, null, 2)}
                       onChange={(e) => setSelectedImage(e.target.value)}
                       className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm"
                     >
-                      <option value="">Choose image...</option>
-                      {images.filter(img => img.summary).map(image => (
-                        <option key={image.id} value={image.id}>{image.name}</option>
+                      <option value="">Choose item...</option>
+                      {allQAItems.map(item => (
+                        <option key={item.id} value={item.id}>{item.name}</option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
@@ -1264,12 +1292,22 @@ ${JSON.stringify(chartData.data, null, 2)}
                       value={newQuestion}
                       onChange={setNewQuestion}
                       onConfirm={setNewQuestion}
-                      inputPlaceholder="Ask about the selected image..."
+                      inputPlaceholder="Ask about the selected item..."
                     />
                   </div>
                   <button
-                    onClick={addQuestion}
-                    disabled={!newQuestion.trim() || !selectedImage || isAskingQuestion}
+                    onClick={async () => {
+                      if (!newQuestion.trim() || !selectedQAItem) return;
+                      if (selectedQAItem.type === 'image') {
+                        await addQuestion();
+                      } else if (selectedQAItem.type === 'table') {
+                        await addTableQuestion(selectedQAItem.id, newQuestion);
+                      } else if (selectedQAItem.type === 'excel') {
+                        await addExcelQuestion(selectedQAItem.id, newQuestion);
+                      }
+                      setNewQuestion('');
+                    }}
+                    disabled={!newQuestion.trim() || !selectedQAItem || isAskingQuestion}
                     className="w-full px-3 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded hover:bg-confluence-blue disabled:bg-gray-300 transition-colors flex items-center justify-center space-x-2 border border-white/10"
                   >
                     {isAskingQuestion ? (
@@ -1286,30 +1324,24 @@ ${JSON.stringify(chartData.data, null, 2)}
                   </button>
                 </div>
                 {/* Q&A Display */}
-                {selectedImage && (
+                {selectedQAItem && (
                   <div className="pt-4 border-t border-white/20 space-y-3">
                     <h4 className="font-semibold text-gray-800">Questions & Answers</h4>
-                    {(() => {
-                      const selectedImageData = images.find(img => img.id === selectedImage);
-                      if (!selectedImageData || !selectedImageData.qa || selectedImageData.qa.length === 0) {
-                        return (
-                          <div className="text-center py-4">
-                            <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500">No questions asked yet</p>
+                    {selectedQAItem.qa.length === 0 ? (
+                      <div className="text-center py-4">
+                        <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">No questions asked yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {selectedQAItem.qa.map((qa, index) => (
+                          <div key={index} className="p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
+                            <p className="font-medium text-gray-800 text-sm mb-2">Q: {qa.question}</p>
+                            <p className="text-gray-700 text-sm">{qa.answer}</p>
                           </div>
-                        );
-                      }
-                      return (
-                        <div className="space-y-3 max-h-60 overflow-y-auto">
-                          {selectedImageData.qa.map((qa, index) => (
-                            <div key={index} className="p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
-                              <p className="font-medium text-gray-800 text-sm mb-2">Q: {qa.question}</p>
-                              <p className="text-gray-700 text-sm">{qa.answer}</p>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {/* Export Options */}
@@ -1346,19 +1378,81 @@ ${JSON.stringify(chartData.data, null, 2)}
                     </div>
                   </div>
                   <div className="space-y-2">
-                    {images.filter(img => img.summary).map(image => (
+                    {allQAItems.map(item => (
                       <button
-                        key={image.id}
-                        onClick={() => exportImage(image)}
+                        key={item.id}
+                        onClick={async () => {
+                          if (item.type === 'image') {
+                            exportImage(images.find(img => img.id === item.id)!);
+                          } else if (item.type === 'table') {
+                            const table = tables.find(tbl => tbl.id === item.id);
+                            if (table) {
+                              const content = `# Table Export: ${table.name}
+
+## Table Type
+${table.name}
+
+## Data
+${table.html}
+
+## Export Details
+- **File Name**: ${fileName || table.name.replace(/\s+/g, '_')}_export
+- **Format**: ${exportFormat}
+- **Generated**: ${new Date().toLocaleString()}
+
+---
+*Generated by Confluence AI Assistant - Table Builder*`;
+                              const response = await apiService.exportContent({
+                                content,
+                                format: exportFormat,
+                                filename: fileName || table.name.replace(/\s+/g, '_') + '_export'
+                              });
+                              const url = URL.createObjectURL(response);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${fileName || table.name.replace(/\s+/g, '_')}_export.${exportFormat}`;
+                              a.click();
+                            }
+                          } else if (item.type === 'excel') {
+                            const excel = excels.find(xls => xls.id === item.id);
+                            if (excel) {
+                              const content = `# Excel Export: ${excel.name}
+
+## Excel Type
+${excel.name}
+
+## Data
+${excel.url}
+
+## Export Details
+- **File Name**: ${fileName || excel.name.replace(/\s+/g, '_')}_export
+- **Format**: ${exportFormat}
+- **Generated**: ${new Date().toLocaleString()}
+
+---
+*Generated by Confluence AI Assistant - Excel Builder*`;
+                              const response = await apiService.exportContent({
+                                content,
+                                format: exportFormat,
+                                filename: fileName || excel.name.replace(/\s+/g, '_') + '_export'
+                              });
+                              const url = URL.createObjectURL(response);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${fileName || excel.name.replace(/\s+/g, '_')}_export.${exportFormat}`;
+                              a.click();
+                            }
+                          }
+                        }}
                         className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-green-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-green-700 transition-colors border border-white/10"
                       >
                         <Download className="w-4 h-4" />
-                        <span>Export {image.name}</span>
+                        <span>Export {item.name}</span>
                       </button>
                     ))}
                   </div>
                 </div>
-                {selectedImage && (
+                {selectedQAItem && (
                   <button
                     onClick={async () => {
                       const { space, page } = getConfluenceSpaceAndPageFromUrl();
@@ -1366,16 +1460,16 @@ ${JSON.stringify(chartData.data, null, 2)}
                         alert('Confluence space or page not specified in macro src URL.');
                         return;
                       }
-                      const selectedImageData = images.find(img => img.id === selectedImage);
-                      if (!selectedImageData || !selectedImageData.summary) {
-                        alert('No summary available for the selected image.');
+                      const selectedItemData = allQAItems.find(item => item.id === selectedQAItem.id);
+                      if (!selectedItemData || !selectedItemData.summary) {
+                        alert('No summary available for the selected item.');
                         return;
                       }
                       try {
                         await apiService.saveToConfluence({
                           space_key: space,
                           page_title: page,
-                          content: selectedImageData.summary,
+                          content: selectedItemData.summary,
                         });
                         setShowToast(true);
                         setTimeout(() => setShowToast(false), 3000);
