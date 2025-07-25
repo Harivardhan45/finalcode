@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, BarChart3, Download, Save, FileText, X, ChevronDown, Loader2, Settings, Video, Code, TrendingUp, TestTube, Image, CheckCircle, ChevronUp } from 'lucide-react';
+import { Search, BarChart3, Download, Save, FileText, X, ChevronDown, Loader2, Settings, Video, Code, TrendingUp, TestTube, Image, CheckCircle, ChevronUp, Check } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
@@ -35,6 +35,13 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
   const [error, setError] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [pageSearch, setPageSearch] = useState('');
+  const [exportFormatSearch, setExportFormatSearch] = useState('');
+  const [isExportFormatDropdownOpen, setIsExportFormatDropdownOpen] = useState(false);
+  const exportFormats = [
+    { value: 'markdown', label: 'Markdown' },
+    { value: 'pdf', label: 'PDF' },
+    { value: 'docx', label: 'Word Document' }
+  ];
 
   const toggleSelectAllPages = () => {
     if (selectedPages.length === pages.length) {
@@ -440,17 +447,51 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                   {/* Export Options */}
                   <div className="mt-4 space-y-3">
                     <div className="flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-700">Export Format:</label>
-                      <select
-                        value={exportFormat}
-                        onChange={(e) => setExportFormat(e.target.value)}
-                        className="px-3 py-1 border border-white/30 rounded text-sm focus:ring-2 focus:ring-confluence-blue bg-white/70 backdrop-blur-sm"
-                      >
-                        <option value="markdown">Markdown</option>
-                        <option value="pdf">PDF</option>
-                        <option value="docx">Word Document</option>
-                        <option value="txt">Plain Text</option>
-                      </select>
+                      <label className="text-sm font-medium text-gray-700">What format would you like to export in?</label>
+                      <div className="relative w-48">
+                        <button
+                          type="button"
+                          onClick={() => setIsExportFormatDropdownOpen(!isExportFormatDropdownOpen)}
+                          className="px-3 py-1 border border-white/30 rounded text-sm focus:ring-2 focus:ring-confluence-blue bg-white/70 backdrop-blur-sm w-full flex items-center justify-between"
+                        >
+                          <span>{exportFormats.find(f => f.value === exportFormat)?.label || 'Select format'}</span>
+                          {isExportFormatDropdownOpen ? (
+                            <ChevronUp className="w-4 h-4 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
+                        {isExportFormatDropdownOpen && (
+                          <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-48 overflow-hidden">
+                            <div className="p-2 border-b border-white/20 bg-white/50">
+                              <input
+                                type="text"
+                                value={exportFormatSearch}
+                                onChange={e => setExportFormatSearch(e.target.value)}
+                                placeholder="Search formats..."
+                                className="w-full px-2 py-1 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                              />
+                            </div>
+                            <div className="max-h-32 overflow-y-auto">
+                              {exportFormats.filter(f => f.label.toLowerCase().includes(exportFormatSearch.toLowerCase())).length === 0 ? (
+                                <div className="p-2 text-gray-500 text-sm text-center">No formats found</div>
+                              ) : (
+                                exportFormats.filter(f => f.label.toLowerCase().includes(exportFormatSearch.toLowerCase())).map(f => (
+                                  <button
+                                    key={f.value}
+                                    type="button"
+                                    onClick={() => { setExportFormat(f.value); setIsExportFormatDropdownOpen(false); setExportFormatSearch(''); }}
+                                    className={`w-full text-left flex items-center space-x-2 p-2 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${exportFormat === f.value ? 'bg-confluence-blue/10' : ''}`}
+                                  >
+                                    <span className="text-sm text-gray-700 flex-1">{f.label}</span>
+                                    {exportFormat === f.value && <Check className="w-4 h-4 text-confluence-blue" />}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="flex space-x-2">

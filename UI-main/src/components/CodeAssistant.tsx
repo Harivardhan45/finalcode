@@ -40,6 +40,13 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
   const [pageSearch, setPageSearch] = useState('');
 
+  // Add new state for AI Actions dropdown
+  const [aiActionSearch, setAiActionSearch] = useState('');
+  const [isAiActionDropdownOpen, setIsAiActionDropdownOpen] = useState(false);
+  // Add new state for Target Language dropdown
+  const [targetLanguageSearch, setTargetLanguageSearch] = useState('');
+  const [isTargetLanguageDropdownOpen, setIsTargetLanguageDropdownOpen] = useState(false);
+
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
     { id: 'video' as const, label: 'Video Summarizer', icon: Video },
@@ -62,6 +69,36 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
     'Refactor Structure',
     'Identify dead code',
     'Add Logging Statements'
+  ];
+
+  // Add languages for target language dropdown
+  const languages = [
+    'Select language...',
+    'JavaScript',
+    'TypeScript',
+    'Python',
+    'Java',
+    'C#',
+    'Go',
+    'Rust',
+    'PHP',
+    'Yang',
+    'C++',
+    'C',
+    'Swift',
+    'Kotlin',
+    'Scala',
+    'Ruby',
+    'Perl',
+    'Bash',
+    'PowerShell',
+    'SQL',
+    'HTML',
+    'CSS',
+    'XML',
+    'JSON',
+    'YAML',
+    'TOML'
   ];
 
   // Load spaces on component mount
@@ -513,16 +550,50 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                     AI Actions
                   </label>
                   <div className="relative">
-                    <select
-                      value={aiAction}
-                      onChange={(e) => setAiAction(e.target.value)}
-                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm"
+                    <button
+                      type="button"
+                      onClick={() => setIsAiActionDropdownOpen(!isAiActionDropdownOpen)}
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between"
                     >
-                      {aiActions.map(action => (
-                        <option key={action} value={action}>{action}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                      <span className={aiAction === '' || aiAction === 'Select action...' ? 'text-gray-500' : 'text-gray-700'}>
+                        {aiAction === '' || aiAction === 'Select action...' ? 'Select action...' : aiAction}
+                      </span>
+                      {isAiActionDropdownOpen ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {isAiActionDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-48 overflow-hidden">
+                        <div className="p-2 border-b border-white/20 bg-white/50">
+                          <input
+                            type="text"
+                            value={aiActionSearch}
+                            onChange={e => setAiActionSearch(e.target.value)}
+                            placeholder="Search actions..."
+                            className="w-full px-2 py-1 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                          />
+                        </div>
+                        <div className="max-h-32 overflow-y-auto">
+                          {aiActions.filter(a => a.toLowerCase().includes(aiActionSearch.toLowerCase())).length === 0 ? (
+                            <div className="p-2 text-gray-500 text-sm text-center">No actions found</div>
+                          ) : (
+                            aiActions.filter(a => a.toLowerCase().includes(aiActionSearch.toLowerCase())).map(a => (
+                              <button
+                                key={a}
+                                type="button"
+                                onClick={() => { setAiAction(a); setIsAiActionDropdownOpen(false); setAiActionSearch(''); }}
+                                className={`w-full text-left flex items-center space-x-2 p-2 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${aiAction === a ? 'bg-confluence-blue/10' : ''}`}
+                              >
+                                <span className="text-sm text-gray-700 flex-1">{a}</span>
+                                {aiAction === a && <Check className="w-4 h-4 text-confluence-blue" />}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -543,23 +614,52 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
 
                 {/* Target Language */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Target Language (Optional)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Target Language</label>
                   <div className="relative">
-                    <select
-                      value={targetLanguage}
-                      onChange={(e) => setTargetLanguage(e.target.value)}
-                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue appearance-none bg-white/70 backdrop-blur-sm"
+                    <button
+                      type="button"
+                      onClick={() => setIsTargetLanguageDropdownOpen(!isTargetLanguageDropdownOpen)}
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between"
                     >
-                      <option value="">Keep original language</option>
-                      {outputFormats.map(format => (
-                        <option key={format} value={format}>
-                          {format.charAt(0).toUpperCase() + format.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                      <span className={targetLanguage === '' ? 'text-gray-500' : 'text-gray-700'}>
+                        {targetLanguage === '' ? 'Select language...' : targetLanguage}
+                      </span>
+                      {isTargetLanguageDropdownOpen ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {isTargetLanguageDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-48 overflow-hidden">
+                        <div className="p-2 border-b border-white/20 bg-white/50">
+                          <input
+                            type="text"
+                            value={targetLanguageSearch}
+                            onChange={e => setTargetLanguageSearch(e.target.value)}
+                            placeholder="Search languages..."
+                            className="w-full px-2 py-1 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                          />
+                        </div>
+                        <div className="max-h-32 overflow-y-auto">
+                          {languages.filter(l => l.toLowerCase().includes(targetLanguageSearch.toLowerCase())).length === 0 ? (
+                            <div className="p-2 text-gray-500 text-sm text-center">No languages found</div>
+                          ) : (
+                            languages.filter(l => l.toLowerCase().includes(targetLanguageSearch.toLowerCase())).map(l => (
+                              <button
+                                key={l}
+                                type="button"
+                                onClick={() => { setTargetLanguage(l); setIsTargetLanguageDropdownOpen(false); setTargetLanguageSearch(''); }}
+                                className={`w-full text-left flex items-center space-x-2 p-2 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${targetLanguage === l ? 'bg-confluence-blue/10' : ''}`}
+                              >
+                                <span className="text-sm text-gray-700 flex-1">{l}</span>
+                                {targetLanguage === l && <Check className="w-4 h-4 text-confluence-blue" />}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
