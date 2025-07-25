@@ -34,6 +34,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
   const [pages, setPages] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [pageSearch, setPageSearch] = useState('');
 
   const toggleSelectAllPages = () => {
     if (selectedPages.length === pages.length) {
@@ -291,9 +292,9 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                     {/* Dropdown */}
                     {isPageDropdownOpen && selectedSpace && (
                       <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
-                        {/* Header with Select All/Clear All */}
+                        {/* Header with Select All/Clear All and Search */}
                         <div className="p-3 border-b border-white/20 bg-white/50">
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-center mb-2">
                             <button
                               onClick={selectAllPages}
                               className="text-sm text-confluence-blue hover:text-confluence-blue/80 font-medium"
@@ -307,15 +308,22 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                               Clear All
                             </button>
                           </div>
+                          <input
+                            type="text"
+                            value={pageSearch}
+                            onChange={e => setPageSearch(e.target.value)}
+                            placeholder="Search pages..."
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                          />
                         </div>
                         {/* Page List */}
                         <div className="max-h-48 overflow-y-auto">
-                          {pages.length === 0 ? (
+                          {(pages.filter(page => page.toLowerCase().includes(pageSearch.toLowerCase()))).length === 0 ? (
                             <div className="p-3 text-gray-500 text-sm text-center">
                               No pages found in this space
                             </div>
                           ) : (
-                            pages.map(page => (
+                            pages.filter(page => page.toLowerCase().includes(pageSearch.toLowerCase())).map(page => (
                               <label
                                 key={page}
                                 className="flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0"
