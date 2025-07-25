@@ -973,17 +973,15 @@ ${JSON.stringify(chartData.data, null, 2)}
                                 onChange={async (e) => {
                                   const newChartType = e.target.value as any;
                                   setSelectedChartType(newChartType);
-                                  // Always recreate the chart when type changes, regardless of existing chart data
                                   setIsChangingChartType(true);
                                   try {
-                                    // Use the stored image ID if available, otherwise find an image with summary
-                                    let imageId = chartData?.data?.imageId;
-                                    if (!imageId) {
-                                      const imageWithSummary = images.find(img => img.summary);
-                                      imageId = imageWithSummary?.id;
-                                    }
-                                    if (imageId) {
-                                      await createChart(imageId, newChartType, chartExportFormat);
+                                    // Use the stored ID and type to regenerate the chart
+                                    if (chartData?.data?.imageId) {
+                                      await createChart(chartData.data.imageId, newChartType, chartExportFormat);
+                                    } else if (chartData?.data?.tableId) {
+                                      await createChartFromTable(chartData.data.tableId, newChartType, chartExportFormat);
+                                    } else if (chartData?.data?.excelId) {
+                                      await createChartFromExcel(chartData.data.excelId, newChartType, chartExportFormat);
                                     }
                                   } finally {
                                     setIsChangingChartType(false);
