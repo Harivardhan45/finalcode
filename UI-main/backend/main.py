@@ -87,7 +87,7 @@ class ImageRequest(BaseModel):
 class ImageSummaryRequest(BaseModel):
     space_key: str
     page_title: str
-    image_url: str
+    image_url: Optional[str] = None
     summary: str
     question: str
 
@@ -1119,46 +1119,54 @@ async def image_summary(request: ImageRequest, req: Request):
 
 @app.post("/image-qa")
 async def image_qa(request: ImageSummaryRequest, req: Request):
-    """Generate AI response for a question about an image"""
+    """Generate AI response for a question about an image, table, or excel (uses summary if no image_url)"""
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
         ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
-        
-        # Download image
-        auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
-        response = requests.get(request.image_url, auth=auth)
-        if response.status_code != 200:
-            raise HTTPException(status_code=404, detail="Failed to fetch image")
-        
-        image_bytes = response.content
-        
-        # Upload to Gemini
-        import tempfile
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-            tmp_img.write(image_bytes)
-            tmp_img.flush()
-            uploaded_img = genai.upload_file(
-                path=tmp_img.name,
-                mime_type="image/png",
-                display_name=f"qa_image_{request.page_title}.png"
-            )
-        
-        full_prompt = (
-            "You're analyzing a technical image extracted from documentation. "
-            "Answer the user's question based on the visual content of the image, "
-            "as well as the summary below.\n\n"
+        # If image_url is provided and non-empty, use image logic
+        if getattr(request, 'image_url', None):
+            image_url = request.image_url
+            if image_url:
+                # Download image
+                import requests
+                auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
+                response = requests.get(image_url, auth=auth)
+                if response.status_code != 200:
+                    raise HTTPException(status_code=404, detail="Failed to fetch image")
+                image_bytes = response.content
+                # Upload to Gemini
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+                    tmp_img.write(image_bytes)
+                    tmp_img.flush()
+                    uploaded_img = genai.upload_file(
+                        path=tmp_img.name,
+                        mime_type="image/png",
+                        display_name=f"qa_image_{request.page_title}.png"
+                    )
+                full_prompt = (
+                    "You're analyzing a technical image extracted from documentation. "
+                    "Answer the user's question based on the visual content of the image, "
+                    "as well as the summary below.\n\n"
+                    f"Summary:\n{request.summary}\n\n"
+                    f"User Question:\n{request.question}"
+                )
+                ai_response = ai_model.generate_content([uploaded_img, full_prompt])
+                answer = ai_response.text.strip()
+                return {"answer": answer}
+        # Otherwise, use summary-only logic (for tables/excels)
+        text_prompt = (
+            "You are analyzing a table, Excel sheet, or text extracted from documentation. "
+            "Answer the user's question based on the summary below.\n\n"
             f"Summary:\n{request.summary}\n\n"
             f"User Question:\n{request.question}"
         )
-        
-        ai_response = ai_model.generate_content([uploaded_img, full_prompt])
+        ai_response = ai_model.generate_content(text_prompt)
         answer = ai_response.text.strip()
-        
         return {"answer": answer}
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
