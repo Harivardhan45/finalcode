@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Code, FileText, Download, Save, X, ChevronDown, Loader2, Zap, Search, Video, TrendingUp, TestTube, Image } from 'lucide-react';
+import { Code, BarChart3, FileText, Download, Save, X, ChevronDown, Loader2, Zap, Search, Video, TrendingUp, TestTube, Image } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
@@ -42,7 +42,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
     { id: 'code' as const, label: 'Code Assistant', icon: Code },
     { id: 'impact' as const, label: 'Impact Analyzer', icon: TrendingUp },
     { id: 'test' as const, label: 'Test Support Tool', icon: TestTube },
-    { id: 'image' as const, label: 'Image Insights & Chart Builder', icon: Image },
+    { id: 'image' as const, label: 'Chart Builder', icon: BarChart3 },
   ];
 
   // Update outputFormats to include all from dhiva

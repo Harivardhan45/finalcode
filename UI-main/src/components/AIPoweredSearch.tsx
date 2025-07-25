@@ -63,7 +63,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
     { id: 'code' as const, label: 'Code Assistant', icon: Code },
     { id: 'impact' as const, label: 'Impact Analyzer', icon: TrendingUp },
     { id: 'test' as const, label: 'Test Support Tool', icon: TestTube },
-    { id: 'image' as const, label: 'Image Insights & Chart Builder', icon: BarChart3},
+    { id: 'image' as const, label: 'Chart Builder', icon: BarChart3},
   ];
 
   // Load spaces on component mount

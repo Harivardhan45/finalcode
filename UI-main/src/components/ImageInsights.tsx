@@ -137,7 +137,7 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     { id: 'code' as const, label: 'Code Assistant', icon: Code },
     { id: 'impact' as const, label: 'Impact Analyzer', icon: TrendingUp },
     { id: 'test' as const, label: 'Test Support Tool', icon: TestTube },
-    { id: 'image' as const, label: 'Chart Builder', icon: Image },
+    { id: 'image' as const, label: 'Chart Builder', icon: BarChart3 },
   ];
 
 
