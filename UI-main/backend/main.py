@@ -8,7 +8,7 @@ import traceback
 import warnings
 import requests
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fpdf import FPDF
@@ -119,6 +119,16 @@ class AnalyzeGoalResponse(BaseModel):
     tools: list[str]
     pages: list[str]
     reasoning: str
+
+class TableSummaryRequest(BaseModel):
+    space_key: str
+    page_title: str
+    table_html: str
+
+class ExcelSummaryRequest(BaseModel):
+    space_key: str
+    page_title: str
+    excel_url: str
 
 # Helper functions
 def remove_emojis(text):
@@ -1392,6 +1402,68 @@ async def analyze_goal(request: AnalyzeGoalRequest, req: Request):
         if not tools or not pages:
             raise HTTPException(status_code=400, detail=f"Gemini did not return valid tools/pages. Raw output:\n{response.text}")
         return {"tools": tools, "pages": pages, "reasoning": reasoning}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/table-summary")
+async def table_summary(request: TableSummaryRequest, req: Request):
+    """Generate AI summary for a table (HTML)"""
+    try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
+        import pandas as pd
+        from io import StringIO
+        # Parse HTML table to DataFrame
+        dfs = pd.read_html(request.table_html)
+        if not dfs:
+            raise HTTPException(status_code=400, detail="No table found in HTML")
+        df = dfs[0]
+        csv_text = df.to_csv(index=False)
+        prompt = (
+            "You are analyzing a table extracted from a Confluence page. "
+            "Summarize the following table in detail. "
+            "Focus on key trends, outliers, and important data points. "
+            "Do not mention file names or metadata.\n\n"
+            f"CSV Table:\n{csv_text}"
+        )
+        response = ai_model.generate_content(prompt)
+        summary = response.text.strip()
+        return {"summary": summary}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/excel-summary")
+async def excel_summary(request: ExcelSummaryRequest, req: Request):
+    """Generate AI summary for an Excel file"""
+    try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
+        import pandas as pd
+        import tempfile
+        import requests
+        # Download and read Excel file
+        auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
+        response = requests.get(request.excel_url, auth=auth)
+        if response.status_code != 200:
+            raise HTTPException(status_code=404, detail="Failed to fetch Excel file")
+        excel_bytes = response.content
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_xls:
+            tmp_xls.write(excel_bytes)
+            tmp_xls.flush()
+            df = pd.read_excel(tmp_xls.name)
+        csv_text = df.to_csv(index=False)
+        prompt = (
+            "You are analyzing an Excel sheet extracted from a Confluence page. "
+            "Summarize the following table in detail. "
+            "Focus on key trends, outliers, and important data points. "
+            "Do not mention file names or metadata.\n\n"
+            f"CSV Table:\n{csv_text}"
+        )
+        response = ai_model.generate_content(prompt)
+        summary = response.text.strip()
+        return {"summary": summary}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

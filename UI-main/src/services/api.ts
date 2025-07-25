@@ -154,6 +154,20 @@ export interface InsightSourcesResponse {
   excels: string[]; // URLs
 }
 
+export interface TableSummaryRequest {
+  space_key: string;
+  page_title: string;
+  table_html: string;
+}
+export interface ExcelSummaryRequest {
+  space_key: string;
+  page_title: string;
+  excel_url: string;
+}
+export interface SummaryResponse {
+  summary: string;
+}
+
 class ApiService {
   private getSelectedApiKey(): string | undefined {
     if (typeof window !== 'undefined' && localStorage.getItem('selectedApiKeyId')) {
@@ -285,6 +299,19 @@ class ApiService {
 
   async saveToConfluence(request: SaveToConfluenceRequest): Promise<SaveToConfluenceResponse> {
     return this.makeRequest<SaveToConfluenceResponse>('/save-to-confluence', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async tableSummary(request: TableSummaryRequest): Promise<SummaryResponse> {
+    return this.makeRequest<SummaryResponse>('/table-summary', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+  async excelSummary(request: ExcelSummaryRequest): Promise<SummaryResponse> {
+    return this.makeRequest<SummaryResponse>('/excel-summary', {
       method: 'POST',
       body: JSON.stringify(request),
     });

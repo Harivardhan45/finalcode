@@ -34,6 +34,8 @@ interface TableData {
   name: string;
   html: string;
   pageTitle?: string;
+  summary?: string;
+  qa?: { question: string; answer: string }[];
 }
 
 interface ExcelData {
@@ -41,6 +43,8 @@ interface ExcelData {
   name: string;
   url: string;
   pageTitle?: string;
+  summary?: string;
+  qa?: { question: string; answer: string }[];
 }
 
 const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect, onModeSelect, autoSpaceKey, isSpaceAutoConnected }) => {
@@ -643,6 +647,89 @@ ${JSON.stringify(chartData.data, null, 2)}
     setSelectedPages([]);
   };
 
+  // Add summary and qa to TableData and ExcelData
+  useEffect(() => {
+    const fetchTableSummaries = async () => {
+      for (const table of tables) {
+        if (!table.summary && table.pageTitle) {
+          try {
+            const response = await apiService.tableSummary({
+              space_key: spaceKey,
+              page_title: table.pageTitle,
+              table_html: table.html,
+            });
+            setTables(prev => prev.map(t => t.id === table.id ? { ...t, summary: response.summary } : t));
+          } catch (error) {
+            setTables(prev => prev.map(t => t.id === table.id ? { ...t, summary: 'AI summary unavailable.' } : t));
+          }
+        }
+      }
+    };
+    if (tables.length > 0) fetchTableSummaries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tables.length]);
+  // Excel summary effect
+  useEffect(() => {
+    const fetchExcelSummaries = async () => {
+      for (const excel of excels) {
+        if (!excel.summary && excel.pageTitle) {
+          try {
+            const response = await apiService.excelSummary({
+              space_key: spaceKey,
+              page_title: excel.pageTitle,
+              excel_url: excel.url,
+            });
+            setExcels(prev => prev.map(x => x.id === excel.id ? { ...x, summary: response.summary } : x));
+          } catch (error) {
+            setExcels(prev => prev.map(x => x.id === excel.id ? { ...x, summary: 'AI summary unavailable.' } : x));
+          }
+        }
+      }
+    };
+    if (excels.length > 0) fetchExcelSummaries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [excels.length]);
+
+  // Q&A for tables
+  const addTableQuestion = async (tableId: string, question: string) => {
+    if (!question.trim()) return;
+    const table = tables.find(tbl => tbl.id === tableId);
+    if (!table || !table.pageTitle || !table.summary) return;
+    // Use the same imageQA endpoint for now, with summary and question
+    setTables(prev => prev.map(t => t.id === tableId ? { ...t, qa: [...(t.qa || []), { question, answer: 'Loading...' }] } : t));
+    try {
+      const response = await apiService.imageQA({
+        space_key: spaceKey,
+        page_title: table.pageTitle,
+        image_url: '', // Not used
+        summary: table.summary,
+        question,
+      });
+      setTables(prev => prev.map(t => t.id === tableId ? { ...t, qa: [...(t.qa || []).slice(0, -1), { question, answer: response.answer }] } : t));
+    } catch (error) {
+      setTables(prev => prev.map(t => t.id === tableId ? { ...t, qa: [...(t.qa || []).slice(0, -1), { question, answer: 'AI answer unavailable.' }] } : t));
+    }
+  };
+  // Q&A for excels
+  const addExcelQuestion = async (excelId: string, question: string) => {
+    if (!question.trim()) return;
+    const excel = excels.find(xls => xls.id === excelId);
+    if (!excel || !excel.pageTitle || !excel.summary) return;
+    setExcels(prev => prev.map(x => x.id === excelId ? { ...x, qa: [...(x.qa || []), { question, answer: 'Loading...' }] } : x));
+    try {
+      const response = await apiService.imageQA({
+        space_key: spaceKey,
+        page_title: excel.pageTitle,
+        image_url: '', // Not used
+        summary: excel.summary,
+        question,
+      });
+      setExcels(prev => prev.map(x => x.id === excelId ? { ...x, qa: [...(x.qa || []).slice(0, -1), { question, answer: response.answer }] } : x));
+    } catch (error) {
+      setExcels(prev => prev.map(x => x.id === excelId ? { ...x, qa: [...(x.qa || []).slice(0, -1), { question, answer: 'AI answer unavailable.' }] } : x));
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-white flex items-center justify-center z-40 p-4">
       <div className="bg-white/80 backdrop-blur-xl border-2 border-[#DFE1E6] rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
@@ -905,6 +992,25 @@ ${JSON.stringify(chartData.data, null, 2)}
                           <span>Create Graph</span>
                         </button>
                       </div>
+                      {/* Table summary and Q&A */}
+                      {table.summary && (
+                        <div className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
+                          <p className="text-sm text-gray-700">{table.summary}</p>
+                          <div className="mt-2">
+                            <form onSubmit={e => { e.preventDefault(); const q = (e.target as any).elements.q.value; addTableQuestion(table.id, q); (e.target as any).reset(); }} className="flex gap-2">
+                              <input name="q" type="text" placeholder="Ask a question about this table..." className="flex-1 p-2 border rounded" />
+                              <button type="submit" className="bg-confluence-blue text-white px-3 py-1 rounded">Ask</button>
+                            </form>
+                            {table.qa && table.qa.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {table.qa.map((qa, i) => (
+                                  <div key={i} className="text-xs text-gray-800"><b>Q:</b> {qa.question}<br /><b>A:</b> {qa.answer}</div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {/* Excels */}
@@ -939,6 +1045,25 @@ ${JSON.stringify(chartData.data, null, 2)}
                           <span>Create Graph</span>
                         </button>
                       </div>
+                      {/* Excel summary and Q&A */}
+                      {excel.summary && (
+                        <div className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
+                          <p className="text-sm text-gray-700">{excel.summary}</p>
+                          <div className="mt-2">
+                            <form onSubmit={e => { e.preventDefault(); const q = (e.target as any).elements.q.value; addExcelQuestion(excel.id, q); (e.target as any).reset(); }} className="flex gap-2">
+                              <input name="q" type="text" placeholder="Ask a question about this Excel..." className="flex-1 p-2 border rounded" />
+                              <button type="submit" className="bg-confluence-blue text-white px-3 py-1 rounded">Ask</button>
+                            </form>
+                            {excel.qa && excel.qa.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {excel.qa.map((qa, i) => (
+                                  <div key={i} className="text-xs text-gray-800"><b>Q:</b> {qa.question}<br /><b>A:</b> {qa.answer}</div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
