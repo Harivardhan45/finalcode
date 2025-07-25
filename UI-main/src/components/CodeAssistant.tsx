@@ -63,7 +63,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
 
   // Add AI Actions catalog
   const aiActions = [
-    'Select action...',
     'Optimize Performance',
     'Generate Documentation',
     'Refactor Structure',
@@ -73,7 +72,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
 
   // Add languages for target language dropdown
   const languages = [
-    'Select language...',
     'JavaScript',
     'TypeScript',
     'Python',
