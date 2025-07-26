@@ -737,8 +737,16 @@ ${JSON.stringify(chartData.data, null, 2)}
         question,
       });
       setTables(prev => prev.map(t => t.id === tableId ? { ...t, qa: [...(t.qa || []).slice(0, -1), { question, answer: response.answer }] } : t));
+      
+      // Add to Q&A history
+      setQaHistory(prev => [{ question, answer: response.answer, imageId: tableId }, ...prev]);
+      setCurrentQaHistoryIndex(0);
     } catch (error) {
       setTables(prev => prev.map(t => t.id === tableId ? { ...t, qa: [...(t.qa || []).slice(0, -1), { question, answer: 'AI answer unavailable.' }] } : t));
+      
+      // Add to Q&A history even for error case
+      setQaHistory(prev => [{ question, answer: 'AI answer unavailable.', imageId: tableId }, ...prev]);
+      setCurrentQaHistoryIndex(0);
     }
   };
   // Q&A for excels
@@ -756,8 +764,16 @@ ${JSON.stringify(chartData.data, null, 2)}
         question,
       });
       setExcels(prev => prev.map(x => x.id === excelId ? { ...x, qa: [...(x.qa || []).slice(0, -1), { question, answer: response.answer }] } : x));
+      
+      // Add to Q&A history
+      setQaHistory(prev => [{ question, answer: response.answer, imageId: excelId }, ...prev]);
+      setCurrentQaHistoryIndex(0);
     } catch (error) {
       setExcels(prev => prev.map(x => x.id === excelId ? { ...x, qa: [...(x.qa || []).slice(0, -1), { question, answer: 'AI answer unavailable.' }] } : x));
+      
+      // Add to Q&A history even for error case
+      setQaHistory(prev => [{ question, answer: 'AI answer unavailable.', imageId: excelId }, ...prev]);
+      setCurrentQaHistoryIndex(0);
     }
   };
 
