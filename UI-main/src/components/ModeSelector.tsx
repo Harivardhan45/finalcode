@@ -20,7 +20,11 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({ onModeSelect, onClose }) =>
 
   return (
     <div className="fixed inset-0 bg-white backdrop-blur-sm flex items-center justify-center z-40 p-4 animate-fadeIn">
-      <div className={`bg-white/80 backdrop-blur-xl border-2 border-[#0052cc] rounded-2xl w-full max-w-md overflow-hidden animate-slideInUp`}>
+      <div className={`bg-white/80 backdrop-blur-xl border-2 rounded-2xl w-full max-w-md overflow-hidden animate-slideInUp ${
+        selectedMode === 'agent' 
+          ? 'border-orange-500' 
+          : 'border-[#0052cc]'
+      }`}>
         {/* Header */}
         <div className={`backdrop-blur-xl p-6 text-white border-b ${
           selectedMode === 'agent'
