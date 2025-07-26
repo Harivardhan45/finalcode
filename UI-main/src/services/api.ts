@@ -284,6 +284,13 @@ class ApiService {
   async getFeatureHistory(feature: string): Promise<{ feature: string; history: string[] }> {
     return this.makeRequest<{ feature: string; history: string[] }>(`/api/history?feature=${encodeURIComponent(feature)}`);
   }
+
+  async sendToGoogleChat(summary: string): Promise<{ status: string; message: string }> {
+    return this.makeRequest<{ status: string; message: string }>('/send-to-google-chat', {
+      method: 'POST',
+      body: JSON.stringify({ summary }),
+    });
+  }
 }
 
 export const apiService = new ApiService(); 

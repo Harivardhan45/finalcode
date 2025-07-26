@@ -434,6 +434,21 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                         <Save className="w-4 h-4" />
                         <span>Save to Confluence</span>
                       </button>
+                      <button
+                        onClick={async () => {
+                          if (!response) return;
+                          try {
+                            const res = await apiService.sendToGoogleChat(response);
+                            alert(res.message);
+                          } catch (err: any) {
+                            alert('Failed to send to Google Chat: ' + (err.message || err));
+                          }
+                        }}
+                        className="flex items-center space-x-2 px-4 py-2 bg-gray-700/90 backdrop-blur-sm text-white rounded-lg hover:bg-gray-800 transition-colors border border-white/10"
+                        disabled={!response}
+                      >
+                        <span>Send to Google Chat</span>
+                      </button>
                     </div>
                   </div>
                 </div>
