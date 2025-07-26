@@ -8,7 +8,7 @@ import traceback
 import warnings
 import requests
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Query
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fpdf import FPDF
@@ -236,6 +236,46 @@ def add_to_feature_history(feature: str, search_term: str):
             feature_history_store[feature].append(search_term)
             feature_history_store[feature] = feature_history_store[feature][-20:]
 # --- END: Feature Search History Storage ---
+
+# --- Google Chat Integration ---
+def send_to_google_chat(summary: str) -> bool:
+    """
+    Sends the summary to Google Chat using the webhook URL from env var.
+    Returns True if successful, False otherwise.
+    """
+    webhook_url = os.getenv("GOOGLE_CHAT_WEBHOOK_URL")
+    if not webhook_url:
+        raise ValueError("GOOGLE_CHAT_WEBHOOK_URL not set in environment variables.")
+    payload = {"text": f"AI Summary:\n{summary}"}
+    headers = {"Content-Type": "application/json"}
+    try:
+        resp = requests.post(webhook_url, json=payload, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            return True
+        else:
+            print(f"Google Chat webhook error: {resp.status_code} {resp.text}")
+            return False
+    except Exception as e:
+        print(f"Exception sending to Google Chat: {e}")
+        return False
+
+@app.post("/send-to-google-chat")
+async def send_to_google_chat_endpoint(payload: dict = Body(...)):
+    """
+    Endpoint to send a summary to Google Chat.
+    Expects JSON: { "summary": "..." }
+    """
+    summary = payload.get("summary")
+    if not summary:
+        raise HTTPException(status_code=400, detail="Missing 'summary' in request body.")
+    try:
+        success = send_to_google_chat(summary)
+        if success:
+            return {"status": "success", "message": "Summary sent to Google Chat."}
+        else:
+            return {"status": "failure", "message": "Failed to send summary to Google Chat."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending to Google Chat: {str(e)}")
 
 # API Endpoints
 @app.get("/")
