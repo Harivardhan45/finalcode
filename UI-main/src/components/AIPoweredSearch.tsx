@@ -27,6 +27,9 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState('');
   const [responseSource, setResponseSource] = useState('');
+  // --- History feature ---
+  const [history, setHistory] = useState<Array<{query: string, response: string, responseSource: string}>>([]);
+  const [currentHistoryIndex, setCurrentHistoryIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showRawContent, setShowRawContent] = useState(false);
   const [exportFormat, setExportFormat] = useState('markdown');
@@ -150,6 +153,9 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
 
       setResponse(result.response);
       setResponseSource(result.source || '');
+      // Add to history
+      setHistory(prev => [{ query, response: result.response, responseSource: result.source || '' }, ...prev]);
+      setCurrentHistoryIndex(0);
     } catch (err) {
       setError('Failed to generate AI response. Please try again.');
       console.error('Error generating response:', err);
@@ -157,6 +163,15 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
       setIsLoading(false);
     }
   };
+
+  // When currentHistoryIndex changes, update displayed response/query/source
+  useEffect(() => {
+    if (currentHistoryIndex !== null && history[currentHistoryIndex]) {
+      setResponse(history[currentHistoryIndex].response);
+      setQuery(history[currentHistoryIndex].query);
+      setResponseSource(history[currentHistoryIndex].responseSource);
+    }
+  }, [currentHistoryIndex]);
 
   const exportResponse = async (format: string) => {
     if (!response) return;
@@ -399,6 +414,32 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
 
             {/* Right Column - Results */}
             <div className="space-y-6 z-40">
+              {/* --- History Dropdown --- */}
+              {history.length > 0 && (
+                <div className="mb-2 flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700">History:</label>
+                  <select
+                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                    value={currentHistoryIndex ?? 0}
+                    onChange={e => setCurrentHistoryIndex(Number(e.target.value))}
+                  >
+                    {history.map((item, idx) => (
+                      <option key={idx} value={idx}>
+                        {item.query.length > 40 ? item.query.slice(0, 40) + '...' : item.query}
+                      </option>
+                    ))}
+                  </select>
+                  {currentHistoryIndex !== null && currentHistoryIndex !== 0 && (
+                    <button
+                      className="text-xs text-confluence-blue underline ml-2"
+                      onClick={() => setCurrentHistoryIndex(0)}
+                    >
+                      Go to Latest
+                    </button>
+                  )}
+                </div>
+              )}
+              {/* --- End History Dropdown --- */}
               {response && (
                 <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <div className="flex items-center justify-between mb-4">
