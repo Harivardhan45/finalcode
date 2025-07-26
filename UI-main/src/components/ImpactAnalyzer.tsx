@@ -39,6 +39,9 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
   const [riskLevel, setRiskLevel] = useState<RiskLevel | null>(null);
   const [question, setQuestion] = useState('');
   const [qaResults, setQaResults] = useState<Array<{question: string, answer: string}>>([]);
+  // --- History feature for Q&A ---
+  const [qaHistory, setQaHistory] = useState<Array<{question: string, answer: string}>>([]);
+  const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
   const [exportFormat, setExportFormat] = useState('markdown');
   const [exportFormatSearch, setExportFormatSearch] = useState('');
   const [isExportFormatDropdownOpen, setIsExportFormatDropdownOpen] = useState(false);
@@ -173,6 +176,11 @@ The modifications primarily focus on security enhancements and input validation.
 This analysis is based on the diff comparison between the selected versions.`;
 
       setQaResults([...qaResults, { question, answer }]);
+      
+      // Add to Q&A history
+      setQaHistory(prev => [{ question, answer }, ...prev]);
+      setCurrentQaHistoryIndex(0);
+      
       setQuestion('');
     } catch (err) {
       console.error('Impact analyzer Q&A error:', err);
@@ -182,6 +190,14 @@ This analysis is based on the diff comparison between the selected versions.`;
       setIsQALoading(false);
     }
   };
+
+  // When currentQaHistoryIndex changes, update displayed question
+  useEffect(() => {
+    if (currentQaHistoryIndex !== null && qaHistory[currentQaHistoryIndex]) {
+      const historyItem = qaHistory[currentQaHistoryIndex];
+      setQuestion(historyItem.question);
+    }
+  }, [currentQaHistoryIndex]);
 
   const exportAnalysis = async () => {
     const content = `# Impact Analysis Report
@@ -592,6 +608,33 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
               {/* Q&A Section */}
               <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                 <h3 className="font-semibold text-gray-800 mb-4">Questions & Analysis</h3>
+                
+                {/* --- History Dropdown for Q&A --- */}
+                {qaHistory.length > 0 && (
+                  <div className="mb-4 flex items-center space-x-2">
+                    <label className="text-sm font-medium text-gray-700">Q&A History:</label>
+                    <select
+                      className="border border-gray-300 rounded px-2 py-1 text-sm"
+                      value={currentQaHistoryIndex ?? 0}
+                      onChange={e => setCurrentQaHistoryIndex(Number(e.target.value))}
+                    >
+                      {qaHistory.map((item, idx) => (
+                        <option key={idx} value={idx}>
+                          {item.question.length > 40 ? item.question.slice(0, 40) + '...' : item.question}
+                        </option>
+                      ))}
+                    </select>
+                    {currentQaHistoryIndex !== null && currentQaHistoryIndex !== 0 && (
+                      <button
+                        className="text-xs text-confluence-blue underline ml-2"
+                        onClick={() => setCurrentQaHistoryIndex(0)}
+                      >
+                        Go to Latest
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* --- End History Dropdown --- */}
                 
                 {/* Existing Q&A */}
                 {qaResults.length > 0 && (

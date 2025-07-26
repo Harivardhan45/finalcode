@@ -47,6 +47,10 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   const [testInputPageSearch, setTestInputPageSearch] = useState('');
   const [isTestInputPageDropdownOpen, setIsTestInputPageDropdownOpen] = useState(false);
 
+  // --- History feature for Q&A ---
+  const [qaHistory, setQaHistory] = useState<Array<{question: string, answer: string}>>([]);
+  const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
+
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
     { id: 'video' as const, label: 'Video Summarizer', icon: Video },
@@ -225,6 +229,11 @@ The test coverage analysis shows comprehensive validation of the code functional
 This analysis is based on the test scenarios and code review performed.`;
 
       setQaResults([...qaResults, { question, answer }]);
+      
+      // Add to Q&A history
+      setQaHistory(prev => [{ question, answer }, ...prev]);
+      setCurrentQaHistoryIndex(0);
+      
       setQuestion('');
     } catch (err) {
       console.error('Test support Q&A error:', err);
@@ -234,6 +243,14 @@ This analysis is based on the test scenarios and code review performed.`;
       setIsQALoading(false);
     }
   };
+
+  // When currentQaHistoryIndex changes, update displayed question
+  useEffect(() => {
+    if (currentQaHistoryIndex !== null && qaHistory[currentQaHistoryIndex]) {
+      const historyItem = qaHistory[currentQaHistoryIndex];
+      setQuestion(historyItem.question);
+    }
+  }, [currentQaHistoryIndex]);
 
   const exportReport = async () => {
     if (!testReport) return;
@@ -716,6 +733,33 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                   <MessageSquare className="w-5 h-5 mr-2" />
                   Questions & Analysis
                 </h3>
+                
+                {/* --- History Dropdown for Q&A --- */}
+                {qaHistory.length > 0 && (
+                  <div className="mb-4 flex items-center space-x-2">
+                    <label className="text-sm font-medium text-gray-700">Q&A History:</label>
+                    <select
+                      className="border border-gray-300 rounded px-2 py-1 text-sm"
+                      value={currentQaHistoryIndex ?? 0}
+                      onChange={e => setCurrentQaHistoryIndex(Number(e.target.value))}
+                    >
+                      {qaHistory.map((item, idx) => (
+                        <option key={idx} value={idx}>
+                          {item.question.length > 40 ? item.question.slice(0, 40) + '...' : item.question}
+                        </option>
+                      ))}
+                    </select>
+                    {currentQaHistoryIndex !== null && currentQaHistoryIndex !== 0 && (
+                      <button
+                        className="text-xs text-confluence-blue underline ml-2"
+                        onClick={() => setCurrentQaHistoryIndex(0)}
+                      >
+                        Go to Latest
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* --- End History Dropdown --- */}
                 
                 {/* Existing Q&A */}
                 {qaResults.length > 0 && (

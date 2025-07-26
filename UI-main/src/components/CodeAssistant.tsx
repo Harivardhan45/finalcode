@@ -47,6 +47,10 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
   const [targetLanguageSearch, setTargetLanguageSearch] = useState('');
   const [isTargetLanguageDropdownOpen, setIsTargetLanguageDropdownOpen] = useState(false);
 
+  // --- History feature for modification instructions ---
+  const [instructionHistory, setInstructionHistory] = useState<Array<{instruction: string, output: string}>>([]);
+  const [currentInstructionHistoryIndex, setCurrentInstructionHistoryIndex] = useState<number | null>(null);
+
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
     { id: 'video' as const, label: 'Video Summarizer', icon: Video },
@@ -233,7 +237,15 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
           page_title: selectedPage,
           instruction: prompt
         });
-        setAiActionOutput(actionResult.modified_code || actionResult.converted_code || actionResult.original_code || 'AI action completed successfully.');
+        const finalOutput = actionResult.modified_code || actionResult.converted_code || actionResult.original_code || 'AI action completed successfully.';
+        setAiActionOutput(finalOutput);
+        
+        // Add to instruction history if modification instruction was used
+        if (hasModificationInstruction) {
+          setInstructionHistory(prev => [{ instruction, output: finalOutput }, ...prev]);
+          setCurrentInstructionHistoryIndex(0);
+        }
+        
         setProcessedCode('');
         return;
       }
@@ -255,7 +267,13 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
           instruction: `${instruction}\n\n${convertedCode}`,
           target_language: '',
         });
-        setModificationOutput(modResult.modified_code || modResult.converted_code || modResult.original_code || 'Modification completed successfully.');
+        const finalOutput = modResult.modified_code || modResult.converted_code || modResult.original_code || 'Modification completed successfully.';
+        setModificationOutput(finalOutput);
+        
+        // Add to instruction history
+        setInstructionHistory(prev => [{ instruction, output: finalOutput }, ...prev]);
+        setCurrentInstructionHistoryIndex(0);
+        
         setConversionOutput('');
         setAiActionOutput('');
         setProcessedCode('');
@@ -294,7 +312,8 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
           page_title: selectedPage,
           instruction: prompt
         });
-        setAiActionOutput(actionResult.modified_code || actionResult.converted_code || actionResult.original_code || 'AI action completed successfully.');
+        const finalOutput = actionResult.modified_code || actionResult.converted_code || actionResult.original_code || 'AI action completed successfully.';
+        setAiActionOutput(finalOutput);
         setProcessedCode('');
         return;
       }
@@ -320,7 +339,12 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         }
         // Show modified code if modification instruction is used
         if (hasModificationInstruction && result.modified_code) {
-          setModificationOutput(result.modified_code);
+          const finalOutput = result.modified_code;
+          setModificationOutput(finalOutput);
+          
+          // Add to instruction history
+          setInstructionHistory(prev => [{ instruction, output: finalOutput }, ...prev]);
+          setCurrentInstructionHistoryIndex(0);
         } else {
           setModificationOutput('');
         }
@@ -392,6 +416,14 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
       console.error('Error exporting:', err);
     }
   };
+
+  // When currentInstructionHistoryIndex changes, update displayed instruction
+  useEffect(() => {
+    if (currentInstructionHistoryIndex !== null && instructionHistory[currentInstructionHistoryIndex]) {
+      const historyItem = instructionHistory[currentInstructionHistoryIndex];
+      setInstruction(historyItem.instruction);
+    }
+  }, [currentInstructionHistoryIndex]);
 
   return (
     <div className="fixed inset-0 bg-white flex items-center justify-center z-40 p-4">
@@ -600,6 +632,34 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Modification Instruction
                   </label>
+                  
+                  {/* --- History Dropdown for Instructions --- */}
+                  {instructionHistory.length > 0 && (
+                    <div className="mb-2 flex items-center space-x-2">
+                      <label className="text-sm font-medium text-gray-700">Instruction History:</label>
+                      <select
+                        className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        value={currentInstructionHistoryIndex ?? 0}
+                        onChange={e => setCurrentInstructionHistoryIndex(Number(e.target.value))}
+                      >
+                        {instructionHistory.map((item, idx) => (
+                          <option key={idx} value={idx}>
+                            {item.instruction.length > 40 ? item.instruction.slice(0, 40) + '...' : item.instruction}
+                          </option>
+                        ))}
+                      </select>
+                      {currentInstructionHistoryIndex !== null && currentInstructionHistoryIndex !== 0 && (
+                        <button
+                          className="text-xs text-confluence-blue underline ml-2"
+                          onClick={() => setCurrentInstructionHistoryIndex(0)}
+                        >
+                          Go to Latest
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {/* --- End History Dropdown --- */}
+                  
                   <div className="w-full">
                     <VoiceRecorder
                       value={instruction}

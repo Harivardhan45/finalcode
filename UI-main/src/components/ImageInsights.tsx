@@ -83,6 +83,10 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     { value: 'docx', label: 'Word Document' }
   ];
 
+  // --- History feature for Q&A ---
+  const [qaHistory, setQaHistory] = useState<Array<{question: string, answer: string, imageId: string}>>([]);
+  const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
+
   // Load spaces on component mount
   useEffect(() => {
     const loadSpaces = async () => {
@@ -270,6 +274,11 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
             }
           : img
       ));
+      
+      // Add to Q&A history
+      setQaHistory(prev => [{ question: newQuestion, answer: response.answer, imageId: selectedImage }, ...prev]);
+      setCurrentQaHistoryIndex(0);
+      
       setNewQuestion('');
     } catch (error) {
       console.error('Failed to get AI response:', error);
@@ -285,11 +294,25 @@ The image analysis reveals specific data patterns and visual elements that direc
             }
           : img
       ));
+      
+      // Add to Q&A history even for fallback
+      setQaHistory(prev => [{ question: newQuestion, answer, imageId: selectedImage }, ...prev]);
+      setCurrentQaHistoryIndex(0);
+      
       setNewQuestion('');
     } finally {
       setIsAskingQuestion(false);
     }
   };
+
+  // When currentQaHistoryIndex changes, update displayed question
+  useEffect(() => {
+    if (currentQaHistoryIndex !== null && qaHistory[currentQaHistoryIndex]) {
+      const historyItem = qaHistory[currentQaHistoryIndex];
+      setNewQuestion(historyItem.question);
+      setSelectedImage(historyItem.imageId);
+    }
+  }, [currentQaHistoryIndex]);
 
   const createChart = async (imageId: string, chartType?: string, exportFormat?: string) => {
     setIsCreatingChart(true);
@@ -1265,6 +1288,33 @@ ${JSON.stringify(chartData.data, null, 2)}
                     'Q&A'
                   : 'Q&A'}
                 </h3>
+                
+                {/* --- History Dropdown for Q&A --- */}
+                {qaHistory.length > 0 && (
+                  <div className="mb-4 flex items-center space-x-2">
+                    <label className="text-sm font-medium text-gray-700">Q&A History:</label>
+                    <select
+                      className="border border-gray-300 rounded px-2 py-1 text-sm"
+                      value={currentQaHistoryIndex ?? 0}
+                      onChange={e => setCurrentQaHistoryIndex(Number(e.target.value))}
+                    >
+                      {qaHistory.map((item, idx) => (
+                        <option key={idx} value={idx}>
+                          {item.question.length > 40 ? item.question.slice(0, 40) + '...' : item.question}
+                        </option>
+                      ))}
+                    </select>
+                    {currentQaHistoryIndex !== null && currentQaHistoryIndex !== 0 && (
+                      <button
+                        className="text-xs text-confluence-blue underline ml-2"
+                        onClick={() => setCurrentQaHistoryIndex(0)}
+                      >
+                        Go to Latest
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* --- End History Dropdown --- */}
                 {/* Image Selection for Q&A */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1502,6 +1552,7 @@ ${excel.url}
                     ))}
                   </div>
                 </div>
+
                 {selectedQAItem && (
                   <button
                     onClick={async () => {

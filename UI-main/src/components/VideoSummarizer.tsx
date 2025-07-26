@@ -30,6 +30,9 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null);
   const [newQuestion, setNewQuestion] = useState('');
   const [selectedVideo, setSelectedVideo] = useState<string>('');
+  // --- History feature for Q&A ---
+  const [qaHistory, setQaHistory] = useState<Array<{question: string, answer: string, videoId: string}>>([]);
+  const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isQALoading, setIsQALoading] = useState(false);
   const [exportFormat, setExportFormat] = useState('markdown');
@@ -190,6 +193,11 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
             } 
           : v
       ));
+      
+      // Add to Q&A history
+      setQaHistory(prev => [{ question: newQuestion, answer: answer, videoId: selectedVideo }, ...prev]);
+      setCurrentQaHistoryIndex(0);
+      
       setNewQuestion('');
     } catch (err) {
       console.error('Q&A API error:', err);
@@ -199,6 +207,15 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
       setIsQALoading(false);
     }
   };
+
+  // When currentQaHistoryIndex changes, update displayed question/answer
+  useEffect(() => {
+    if (currentQaHistoryIndex !== null && qaHistory[currentQaHistoryIndex]) {
+      const historyItem = qaHistory[currentQaHistoryIndex];
+      setNewQuestion(historyItem.question);
+      setSelectedVideo(historyItem.videoId);
+    }
+  }, [currentQaHistoryIndex]);
 
   const exportSummary = async (video: VideoContent, format: string) => {
     const content = `# Video Summary: ${video.name}
@@ -554,6 +571,34 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                       {/* Q&A Section */}
                       <div>
                         <h5 className="font-semibold text-gray-800 mb-3">Questions & Answers</h5>
+                        
+                        {/* --- History Dropdown for Q&A --- */}
+                        {qaHistory.length > 0 && (
+                          <div className="mb-4 flex items-center space-x-2">
+                            <label className="text-sm font-medium text-gray-700">Q&A History:</label>
+                            <select
+                              className="border border-gray-300 rounded px-2 py-1 text-sm"
+                              value={currentQaHistoryIndex ?? 0}
+                              onChange={e => setCurrentQaHistoryIndex(Number(e.target.value))}
+                            >
+                              {qaHistory.map((item, idx) => (
+                                <option key={idx} value={idx}>
+                                  {item.question.length > 40 ? item.question.slice(0, 40) + '...' : item.question}
+                                </option>
+                              ))}
+                            </select>
+                            {currentQaHistoryIndex !== null && currentQaHistoryIndex !== 0 && (
+                              <button
+                                className="text-xs text-confluence-blue underline ml-2"
+                                onClick={() => setCurrentQaHistoryIndex(0)}
+                              >
+                                Go to Latest
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {/* --- End History Dropdown --- */}
+                        
                         <div className="space-y-4">
                           {video.qa && video.qa.length > 0 && (
                             <div className="space-y-3">
