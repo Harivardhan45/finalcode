@@ -35,6 +35,7 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
   const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isQALoading, setIsQALoading] = useState(false);
+  const [isTypingNewQuestion, setIsTypingNewQuestion] = useState(false);
   const [exportFormat, setExportFormat] = useState('markdown');
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [pages, setPages] = useState<string[]>([]);
@@ -175,9 +176,15 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
     setIsQALoading(true);
     
     try {
+      // Find the video to get its corresponding page title
+      const video = videos.find(v => v.id === selectedVideo);
+      if (!video) {
+        throw new Error('Video not found');
+      }
+      
       const result = await apiService.videoSummarizer({
         space_key: selectedSpace,
-        page_title: selectedPages[0], // Use first selected page for Q&A
+        page_title: video.name, // Use the specific video's page title
         question: newQuestion
       });
 
@@ -199,6 +206,7 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
       setCurrentQaHistoryIndex(0);
       
       setNewQuestion('');
+      setIsTypingNewQuestion(false);
     } catch (err) {
       console.error('Q&A API error:', err);
       setError('Failed to get answer. Please try again.');
@@ -210,12 +218,12 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
 
   // When currentQaHistoryIndex changes, update displayed question/answer
   useEffect(() => {
-    if (currentQaHistoryIndex !== null && qaHistory[currentQaHistoryIndex]) {
+    if (currentQaHistoryIndex !== null && qaHistory[currentQaHistoryIndex] && !isTypingNewQuestion) {
       const historyItem = qaHistory[currentQaHistoryIndex];
       setNewQuestion(historyItem.question);
       setSelectedVideo(historyItem.videoId);
     }
-  }, [currentQaHistoryIndex]);
+  }, [currentQaHistoryIndex, qaHistory, isTypingNewQuestion]);
 
   const exportSummary = async (video: VideoContent, format: string) => {
     const content = `# Video Summary: ${video.name}
@@ -613,18 +621,30 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                           
                           {/* Add New Question */}
                           <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-                            <div className="flex space-x-2 items-center">
+                            <div className="flex space-x-2 items-center" onClick={() => {
+                              setIsTypingNewQuestion(true);
+                              setCurrentQaHistoryIndex(null);
+                            }}>
                               <div className="flex-1">
                                 <VoiceRecorder
                                   value={newQuestion}
-                                  onChange={setNewQuestion}
-                                  onConfirm={setNewQuestion}
+                                  onChange={(value) => {
+                                    setNewQuestion(value);
+                                    setIsTypingNewQuestion(true);
+                                    setCurrentQaHistoryIndex(null);
+                                  }}
+                                  onConfirm={(value) => {
+                                    setNewQuestion(value);
+                                    setIsTypingNewQuestion(false);
+                                  }}
                                   inputPlaceholder="Ask a question about this video..."
                                 />
                               </div>
                               <button
                                 onClick={() => {
                                   setSelectedVideo(video.id);
+                                  setIsTypingNewQuestion(false);
+                                  setCurrentQaHistoryIndex(null);
                                   addQuestion();
                                 }}
                                 disabled={isQALoading}
