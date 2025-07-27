@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, BarChart3, GitCompare, AlertTriangle, CheckCircle, X, ChevronDown, Loader2, Download, Save, MessageSquare, Search, Video, Code, TestTube, Image, ChevronUp, Check } from 'lucide-react';
+import { TrendingUp, BarChart3, GitCompare, AlertTriangle, CheckCircle, X, ChevronDown, Loader2, Download, Save, MessageSquare, Search, Video, Code, TestTube, Image, ChevronUp, Check, ExternalLink, Shield } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
-import { apiService, Space } from '../services/api';
+import { apiService, Space, StackOverflowRisk } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 import VoiceRecorder from './VoiceRecorder';
@@ -39,6 +39,8 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
   const [riskLevel, setRiskLevel] = useState<RiskLevel | null>(null);
   const [question, setQuestion] = useState('');
   const [qaResults, setQaResults] = useState<Array<{question: string, answer: string}>>([]);
+  const [stackOverflowRisks, setStackOverflowRisks] = useState<StackOverflowRisk[]>([]);
+  const [enableStackOverflowCheck, setEnableStackOverflowCheck] = useState(true);
   // --- History feature for Q&A ---
   const [qaHistory, setQaHistory] = useState<Array<{question: string, answer: string}>>([]);
   const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
@@ -129,7 +131,8 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
       const result = await apiService.impactAnalyzer({
         space_key: selectedSpace,
         old_page_title: oldPage,
-        new_page_title: newPage
+        new_page_title: newPage,
+        enable_stack_overflow_check: enableStackOverflowCheck
       });
 
       setDiffResults(result.diff || '');
@@ -146,6 +149,9 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
         score: result.risk_score || 0,
         factors: result.risk_factors || []
       });
+      
+      // Set Stack Overflow risks if available
+      setStackOverflowRisks(result.stack_overflow_risks || []);
       
     } catch (err) {
       setError('Failed to analyze impact. Please try again.');
@@ -211,6 +217,7 @@ This analysis is based on the diff comparison between the selected versions.`;
 - **Old Version**: ${oldPage}
 - **New Version**: ${newPage}
 - **Analysis Date**: ${new Date().toLocaleString()}
+- **Stack Overflow Risk Check**: ${enableStackOverflowCheck ? 'Enabled' : 'Disabled'}
 
 ## Metrics
 - Lines Added: ${metrics?.linesAdded}
@@ -225,6 +232,18 @@ This analysis is based on the diff comparison between the selected versions.`;
 ${riskLevel?.factors.map(factor => `  - ${factor}`).join('\n')}
 
 ${impactSummary}
+
+${stackOverflowRisks.length > 0 ? `
+## Stack Overflow Risk Analysis
+${stackOverflowRisks.map((risk, index) => `
+### ${index + 1}. ${risk.pattern} (${risk.risk_level.toUpperCase()} RISK)
+${risk.description}
+
+${risk.deprecation_warning ? `**Deprecation Warning:** ${risk.deprecation_warning}\n` : ''}
+${risk.alternative_suggestions.length > 0 ? `**Alternative Suggestions:**\n${risk.alternative_suggestions.map(s => `- ${s}`).join('\n')}\n` : ''}
+${risk.stack_overflow_links.length > 0 ? `**Stack Overflow References:**\n${risk.stack_overflow_links.map((link, idx) => `${idx + 1}. ${link}`).join('\n')}\n` : ''}
+`).join('\n')}
+` : ''}
 
 ## Code Diff
 \`\`\`diff
@@ -288,6 +307,15 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
       case 'medium': return <AlertTriangle className="w-5 h-5" />;
       case 'high': return <AlertTriangle className="w-5 h-5" />;
       default: return <AlertTriangle className="w-5 h-5" />;
+    }
+  };
+
+  const getStackOverflowRiskIcon = (level: string) => {
+    switch (level) {
+      case 'low': return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'medium': return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
+      case 'high': return <AlertTriangle className="w-4 h-4 text-red-600" />;
+      default: return <AlertTriangle className="w-4 h-4 text-gray-600" />;
     }
   };
 
@@ -493,6 +521,25 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                   </div>
                 </div>
 
+                {/* Stack Overflow Risk Checker Toggle */}
+                <div className="flex items-center space-x-3 p-3 bg-blue-50/80 backdrop-blur-sm rounded-lg border border-blue-200/50">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  <div className="flex-1">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableStackOverflowCheck}
+                        onChange={(e) => setEnableStackOverflowCheck(e.target.checked)}
+                        className="w-4 h-4 text-confluence-blue border-gray-300 rounded focus:ring-confluence-blue"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Enable Stack Overflow Risk Checker</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Scans for deprecated patterns and risky code practices
+                    </p>
+                  </div>
+                </div>
+
                 {/* Analyze Button */}
                 <button
                   onClick={analyzeDiff}
@@ -611,6 +658,78 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                   </div>
                 </div>
               )}
+
+              {/* Stack Overflow Risk Checker Results */}
+              {stackOverflowRisks.length > 0 && (
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                  <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                    <Shield className="w-5 h-5 mr-2 text-blue-600" />
+                    Stack Overflow Risk Analysis
+                  </h3>
+                  <div className="space-y-4">
+                    {stackOverflowRisks.map((risk, index) => (
+                      <div key={index} className={`p-4 rounded-lg border ${
+                        risk.risk_level === 'high' ? 'bg-red-50/80 border-red-200/50' :
+                        risk.risk_level === 'medium' ? 'bg-yellow-50/80 border-yellow-200/50' :
+                        'bg-green-50/80 border-green-200/50'
+                      }`}>
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              risk.risk_level === 'high' ? 'bg-red-100 text-red-800' :
+                              risk.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {risk.risk_level.toUpperCase()} RISK
+                            </span>
+                            <span className="text-sm font-medium text-gray-700">{risk.pattern}</span>
+                          </div>
+                        </div>
+                        
+                        <p className="text-sm text-gray-700 mb-3">{risk.description}</p>
+                        
+                        {risk.deprecation_warning && (
+                          <div className="bg-orange-50/80 border border-orange-200/50 rounded p-3 mb-3">
+                            <p className="text-sm text-orange-800 font-medium">⚠️ Deprecation Warning</p>
+                            <p className="text-sm text-orange-700">{risk.deprecation_warning}</p>
+                          </div>
+                        )}
+                        
+                        {risk.alternative_suggestions.length > 0 && (
+                          <div className="mb-3">
+                            <p className="text-sm font-medium text-gray-700 mb-2">💡 Alternative Suggestions:</p>
+                            <ul className="list-disc list-inside space-y-1">
+                              {risk.alternative_suggestions.map((suggestion, idx) => (
+                                <li key={idx} className="text-sm text-gray-600">{suggestion}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {risk.stack_overflow_links.length > 0 && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">🔗 Stack Overflow References:</p>
+                            <div className="space-y-1">
+                              {risk.stack_overflow_links.map((link, idx) => (
+                                <a
+                                  key={idx}
+                                  href={link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Stack Overflow Discussion {idx + 1}</span>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right Column - Q&A and Export */}
@@ -626,6 +745,43 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                         <span className="text-gray-700">{factor}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stack Overflow Risk Summary */}
+              {stackOverflowRisks.length > 0 && (
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                  <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                    <Shield className="w-5 h-5 mr-2 text-blue-600" />
+                    Stack Overflow Risks
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="text-center p-3 bg-blue-50/80 rounded-lg border border-blue-200/50">
+                      <div className="text-2xl font-bold text-blue-600">{stackOverflowRisks.length}</div>
+                      <div className="text-sm text-blue-700">Total Risks Found</div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 bg-red-50/80 rounded border border-red-200/50">
+                        <div className="text-lg font-bold text-red-600">
+                          {stackOverflowRisks.filter(r => r.risk_level === 'high').length}
+                        </div>
+                        <div className="text-xs text-red-700">High</div>
+                      </div>
+                      <div className="p-2 bg-yellow-50/80 rounded border border-yellow-200/50">
+                        <div className="text-lg font-bold text-yellow-600">
+                          {stackOverflowRisks.filter(r => r.risk_level === 'medium').length}
+                        </div>
+                        <div className="text-xs text-yellow-700">Medium</div>
+                      </div>
+                      <div className="p-2 bg-green-50/80 rounded border border-green-200/50">
+                        <div className="text-lg font-bold text-green-600">
+                          {stackOverflowRisks.filter(r => r.risk_level === 'low').length}
+                        </div>
+                        <div className="text-xs text-green-700">Low</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

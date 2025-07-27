@@ -18,6 +18,7 @@ export interface ImpactRequest {
   old_page_title: string;
   new_page_title: string;
   question?: string;
+  enable_stack_overflow_check?: boolean;
 }
 
 export interface TestRequest {
@@ -67,6 +68,16 @@ export interface ImpactResponse {
   risk_factors: string[];
   answer?: string;
   diff: string;
+  stack_overflow_risks?: StackOverflowRisk[];
+}
+
+export interface StackOverflowRisk {
+  pattern: string;
+  risk_level: 'low' | 'medium' | 'high';
+  description: string;
+  stack_overflow_links: string[];
+  alternative_suggestions: string[];
+  deprecation_warning?: string;
 }
 
 export interface TestResponse {

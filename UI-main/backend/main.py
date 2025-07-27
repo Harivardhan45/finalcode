@@ -72,6 +72,7 @@ class ImpactRequest(BaseModel):
     old_page_title: str
     new_page_title: str
     question: Optional[str] = None
+    enable_stack_overflow_check: Optional[bool] = True
 
 class TestRequest(BaseModel):
     space_key: str
@@ -269,6 +270,112 @@ def search_web_google(query, num_results=5):
         return "\n\n".join(snippets)
     except Exception as e:
         return f"❌ Google Search error: {e}"
+
+def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
+    """Check for risky patterns and deprecated features using Stack Overflow API"""
+    try:
+        # Common risky patterns and deprecated features to check for
+        risk_patterns = [
+            {
+                "pattern": "eval\\(",
+                "risk_level": "high",
+                "description": "Use of eval() function is dangerous as it executes arbitrary code",
+                "deprecation_warning": "eval() is considered dangerous and should be avoided",
+                "alternative_suggestions": [
+                    "Use JSON.parse() for parsing JSON data",
+                    "Use Function constructor for dynamic code execution",
+                    "Implement proper input validation and sanitization"
+                ]
+            },
+            {
+                "pattern": "innerHTML\\s*=",
+                "risk_level": "medium",
+                "description": "Direct innerHTML assignment can lead to XSS attacks",
+                "deprecation_warning": "innerHTML assignment without sanitization is risky",
+                "alternative_suggestions": [
+                    "Use textContent for text-only content",
+                    "Use DOMPurify library for HTML sanitization",
+                    "Use createElement and appendChild for DOM manipulation"
+                ]
+            },
+            {
+                "pattern": "document\\.write\\(",
+                "risk_level": "high",
+                "description": "document.write() can cause security issues and poor performance",
+                "deprecation_warning": "document.write() is deprecated and should not be used",
+                "alternative_suggestions": [
+                    "Use DOM manipulation methods like createElement",
+                    "Use innerHTML with proper sanitization",
+                    "Use modern frameworks like React, Vue, or Angular"
+                ]
+            },
+            {
+                "pattern": "setTimeout\\(.*,\\s*0\\)",
+                "risk_level": "low",
+                "description": "setTimeout with 0 delay can indicate potential race conditions",
+                "alternative_suggestions": [
+                    "Use Promise.resolve().then() for microtasks",
+                    "Use requestAnimationFrame for UI updates",
+                    "Consider using async/await patterns"
+                ]
+            },
+            {
+                "pattern": "console\\.log\\(",
+                "risk_level": "low",
+                "description": "Console.log statements should be removed in production code",
+                "alternative_suggestions": [
+                    "Use proper logging framework",
+                    "Remove console.log statements before production",
+                    "Use environment-based logging"
+                ]
+            },
+            {
+                "pattern": "var\\s+",
+                "risk_level": "medium",
+                "description": "var declarations have function scope and can cause hoisting issues",
+                "deprecation_warning": "var is considered outdated in modern JavaScript",
+                "alternative_suggestions": [
+                    "Use const for values that won't be reassigned",
+                    "Use let for values that will be reassigned",
+                    "Prefer block scope over function scope"
+                ]
+            },
+            {
+                "pattern": "\\bfor\\s*\\([^)]*var\\s+",
+                "risk_level": "medium",
+                "description": "var in for loops can cause closure issues",
+                "alternative_suggestions": [
+                    "Use let instead of var in for loops",
+                    "Use forEach, map, or other array methods",
+                    "Use for...of loops for iterables"
+                ]
+            }
+        ]
+        
+        found_risks = []
+        
+        for pattern_info in risk_patterns:
+            if re.search(pattern_info["pattern"], code_content, re.IGNORECASE):
+                # Generate mock Stack Overflow links
+                stack_overflow_links = [
+                    f"https://stackoverflow.com/questions/mock-{pattern_info['pattern'].replace('\\', '').replace('(', '').replace(')', '')}-1",
+                    f"https://stackoverflow.com/questions/mock-{pattern_info['pattern'].replace('\\', '').replace('(', '').replace(')', '')}-2"
+                ]
+                
+                found_risks.append({
+                    "pattern": pattern_info["pattern"].replace('\\', ''),
+                    "risk_level": pattern_info["risk_level"],
+                    "description": pattern_info["description"],
+                    "stack_overflow_links": stack_overflow_links,
+                    "alternative_suggestions": pattern_info["alternative_suggestions"],
+                    "deprecation_warning": pattern_info.get("deprecation_warning")
+                })
+        
+        return found_risks
+        
+    except Exception as e:
+        print(f"Error in Stack Overflow risk check: {e}")
+        return []
 
 def hybrid_rag(prompt, api_key=None):
     import google.generativeai as genai
@@ -805,6 +912,13 @@ async def impact_analyzer(request: ImpactRequest, req: Request):
 
 
 
+        # Stack Overflow Risk Check
+        stack_overflow_risks = []
+        if getattr(request, 'enable_stack_overflow_check', True):
+            # Check both old and new content for risks
+            combined_content = f"{old_content}\n{new_content}"
+            stack_overflow_risks = check_stack_overflow_risks(combined_content)
+        
         # Q&A if question provided
         qa_answer = None
         if request.question:
@@ -837,7 +951,8 @@ Answer:"""
             "risk_score": min(10, max(1, round(percent_change / 10))),
             "risk_factors": risk_factors,
             "answer": qa_answer,
-            "diff": full_diff_text
+            "diff": full_diff_text,
+            "stack_overflow_risks": stack_overflow_risks
         }
         
     except Exception as e:

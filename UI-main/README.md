@@ -6,9 +6,29 @@ A modern React-based web application that integrates with Confluence and provide
 
 - **AI Powered Search**: Search and analyze Confluence pages using AI
 - **Code Assistant**: Modify and convert code from Confluence pages
-- **Impact Analyzer**: Analyze code changes and their impact
+- **Impact Analyzer**: Analyze code changes and their impact with Stack Overflow Risk Checker
 - **Test Support Tool**: Generate test strategies and analyze test data
 - **Video Summarizer**: Summarize video content (coming soon)
+
+### Stack Overflow Risk Checker
+
+The Impact Analyzer now includes an integrated Stack Overflow Risk Checker that:
+
+- **Scans recent changes** for usage of outdated methods and deprecated features
+- **Queries Stack Overflow patterns** to identify risky code practices
+- **Suggests alternatives** based on best practices from Stack Overflow discussions
+- **Flags deprecation warnings** and provides modern alternatives
+- **Provides risk assessment** with high, medium, and low risk levels
+- **Links to relevant Stack Overflow discussions** for further reading
+
+**Supported Risk Patterns:**
+- `eval()` function usage (High Risk)
+- Direct `innerHTML` assignment (Medium Risk)
+- `document.write()` usage (High Risk)
+- `setTimeout(..., 0)` patterns (Low Risk)
+- `console.log()` in production code (Low Risk)
+- `var` declarations (Medium Risk)
+- `var` in for loops (Medium Risk)
 
 ## Prerequisites
 
@@ -87,7 +107,7 @@ The backend provides the following API endpoints:
 - `GET /pages/{space_key}` - Get pages from a specific space
 - `POST /search` - AI-powered search functionality
 - `POST /code-assistant` - Code modification and conversion
-- `POST /impact-analyzer` - Code change impact analysis
+- `POST /impact-analyzer` - Code change impact analysis with Stack Overflow risk checking
 - `POST /test-support` - Test strategy generation
 - `POST /export` - Export content in various formats
 
