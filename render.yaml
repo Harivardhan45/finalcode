@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: confluence-ai-assistant
+    name: backend-5v02
     env: python
     buildCommand: |
       cd UI-main/backend
