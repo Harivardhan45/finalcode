@@ -362,7 +362,9 @@ The image analysis reveals specific data patterns and visual elements that direc
           chartUrl, 
           filename: response.filename, 
           exportFormat: currentExportFormat,
-          imageId: imageId // Store the image ID for recreation
+          imageId: imageId, // Store the image ID for recreation
+          chartDataBase64: response.chart_data, // Store the base64 data for Confluence saving
+          mimeType: response.mime_type // Store the mime type
         },
         title: `Generated ${currentChartType.charAt(0).toUpperCase() + currentChartType.slice(1)} Chart`
       });
@@ -614,7 +616,14 @@ ${JSON.stringify(chartData.data, null, 2)}
       const chartUrl = URL.createObjectURL(blob);
       setChartData({
         type: currentChartType as any,
-        data: { chartUrl, filename: response.filename, exportFormat: currentExportFormat, tableId },
+        data: { 
+          chartUrl, 
+          filename: response.filename, 
+          exportFormat: currentExportFormat, 
+          tableId,
+          chartDataBase64: response.chart_data, // Store the base64 data for Confluence saving
+          mimeType: response.mime_type // Store the mime type
+        },
         title: `Generated ${currentChartType.charAt(0).toUpperCase() + currentChartType.slice(1)} Chart`
       });
       setTimeout(() => {
@@ -656,7 +665,14 @@ ${JSON.stringify(chartData.data, null, 2)}
       const chartUrl = URL.createObjectURL(blob);
       setChartData({
         type: currentChartType as any,
-        data: { chartUrl, filename: response.filename, exportFormat: currentExportFormat, excelId },
+        data: { 
+          chartUrl, 
+          filename: response.filename, 
+          exportFormat: currentExportFormat, 
+          excelId,
+          chartDataBase64: response.chart_data, // Store the base64 data for Confluence saving
+          mimeType: response.mime_type // Store the mime type
+        },
         title: `Generated ${currentChartType.charAt(0).toUpperCase() + currentChartType.slice(1)} Chart`
       });
       setTimeout(() => {
@@ -1326,7 +1342,7 @@ ${JSON.stringify(chartData.data, null, 2)}
   <p><strong>Chart Type:</strong> ${chartData.type.charAt(0).toUpperCase() + chartData.type.slice(1)} Chart</p>
   <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
   <div class="chart-preview">
-    <img src="${chartData.data.chartUrl || ''}" alt="${chartData.title}" style="max-width: 100%; height: auto;" />
+    <img src="data:${chartData.data.mimeType};base64,${chartData.data.chartDataBase64}" alt="${chartData.title}" style="max-width: 100%; height: auto;" />
   </div>
   <p><em>Chart generated from ${chartData.data.imageId ? 'image data' : chartData.data.tableId ? 'table data' : chartData.data.excelId ? 'excel data' : 'data source'}</em></p>
 </div>`;
@@ -1370,7 +1386,7 @@ ${JSON.stringify(chartData.data, null, 2)}
   <p><strong>Chart Type:</strong> ${chartData.type.charAt(0).toUpperCase() + chartData.type.slice(1)} Chart</p>
   <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
   <div class="chart-preview">
-    <img src="${chartData.data.chartUrl || ''}" alt="${chartData.title}" style="max-width: 100%; height: auto;" />
+    <img src="data:${chartData.data.mimeType};base64,${chartData.data.chartDataBase64}" alt="${chartData.title}" style="max-width: 100%; height: auto;" />
   </div>
   <p><em>Chart generated from ${chartData.data.imageId ? 'image data' : chartData.data.tableId ? 'table data' : chartData.data.excelId ? 'excel data' : 'data source'}</em></p>
 </div>`;
