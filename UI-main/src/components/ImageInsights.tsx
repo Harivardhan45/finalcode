@@ -70,6 +70,11 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [isChangingChartType, setIsChangingChartType] = useState(false);
   const [isExportingChart, setIsExportingChart] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [saveMode, setSaveMode] = useState('append');
+  const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [previewDiff, setPreviewDiff] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const chartPreviewRef = useRef<HTMLDivElement>(null);
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
   const [tables, setTables] = useState<TableData[]>([]);
@@ -804,6 +809,26 @@ ${JSON.stringify(chartData.data, null, 2)}
 
   // Define selectedQAItem before Q&A section
   const selectedQAItem = allQAItems.find(item => item.id === selectedImage);
+
+  function cleanPreviewContent(html: string, numBlocks = 2): string {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      // Remove chatbot widget by class or id (adjust selector as needed)
+      const chatbot = doc.querySelector('.YOUR_CHATBOT_CLASS, #YOUR_CHATBOT_ID');
+      if (chatbot) chatbot.remove();
+
+      // Get all paragraphs and divs (or adjust as needed)
+      const blocks = Array.from(doc.body.querySelectorAll('p, div, section, ul, ol, pre, h1, h2, h3, h4, h5, h6'));
+      if (blocks.length >= numBlocks) {
+        return blocks.slice(-numBlocks).map(el => el.outerHTML).join('');
+      }
+      // Fallback: return all content
+      return doc.body.innerHTML;
+    } catch {
+      return html;
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-white flex items-center justify-center z-40 p-4">
@@ -1570,39 +1595,91 @@ ${excel.url}
                 </div>
 
                 {selectedQAItem && (
-                  <button
-                    onClick={async () => {
-                      const { space, page } = getConfluenceSpaceAndPageFromUrl();
-                      if (!space || !page) {
-                        alert('Confluence space or page not specified in macro src URL.');
-                        return;
-                      }
-                      const selectedItemData = allQAItems.find(item => item.id === selectedQAItem.id);
-                      if (!selectedItemData || !selectedItemData.summary) {
-                        alert('No summary available for the selected item.');
-                        return;
-                      }
-                      try {
-                        await apiService.saveToConfluence({
-                          space_key: space,
-                          page_title: page,
-                          content: selectedItemData.summary,
-                        });
-                        setShowToast(true);
-                        setTimeout(() => setShowToast(false), 3000);
-                      } catch (err: any) {
-                        alert('Failed to save to Confluence: ' + (err.message || err));
-                      }
-                    }}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10 mt-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>Save {selectedQAItem ?
-                      selectedQAItem.type === 'image' ? 'Image' :
-                      selectedQAItem.type === 'table' ? 'Table' :
-                      selectedQAItem.type === 'excel' ? 'Excel' : 'Item'
-                    : 'Item'} Summary to Confluence</span>
-                  </button>
+                  <>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <label htmlFor="save-mode" className="text-sm font-medium text-gray-700">Save Mode:</label>
+                      <select
+                        id="save-mode"
+                        value={saveMode}
+                        onChange={e => setSaveMode(e.target.value)}
+                        className="px-3 py-1 border border-white/30 rounded text-sm focus:ring-2 focus:ring-confluence-blue bg-white/70 backdrop-blur-sm"
+                      >
+                        <option value="append">Append</option>
+                        <option value="overwrite">Overwrite</option>
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <button
+                        onClick={async () => {
+                          setIsPreviewLoading(true);
+                          setShowPreview(false);
+                          try {
+                            const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                            if (!space || !page) {
+                              alert('Confluence space or page not specified in macro src URL.');
+                              return;
+                            }
+                            const selectedItemData = allQAItems.find(item => item.id === selectedQAItem.id);
+                            if (!selectedItemData || !selectedItemData.summary) {
+                              alert('No summary available for the selected item.');
+                              return;
+                            }
+                            const preview = await apiService.previewSaveToConfluence({
+                              space_key: space,
+                              page_title: page,
+                              content: selectedItemData.summary,
+                              mode: saveMode,
+                            });
+                            setPreviewContent(preview.preview_content);
+                            setPreviewDiff(preview.diff);
+                            setShowPreview(true);
+                          } catch (err: any) {
+                            alert('Failed to generate preview: ' + (err.message || err));
+                          } finally {
+                            setIsPreviewLoading(false);
+                          }
+                        }}
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors border border-white/10"
+                      >
+                        {isPreviewLoading ? "Loading..." : "Preview"}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                          if (!space || !page) {
+                            alert('Confluence space or page not specified in macro src URL.');
+                            return;
+                          }
+                          const selectedItemData = allQAItems.find(item => item.id === selectedQAItem.id);
+                          if (!selectedItemData || !selectedItemData.summary) {
+                            alert('No summary available for the selected item.');
+                            return;
+                          }
+                          try {
+                            await apiService.saveToConfluence({
+                              space_key: space,
+                              page_title: page,
+                              content: selectedItemData.summary,
+                              mode: saveMode,
+                            });
+                            setShowToast(true);
+                            setTimeout(() => setShowToast(false), 3000);
+                          } catch (err: any) {
+                            alert('Failed to save to Confluence: ' + (err.message || err));
+                          }
+                        }}
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Save {selectedQAItem ?
+                          selectedQAItem.type === 'image' ? 'Image' :
+                          selectedQAItem.type === 'table' ? 'Table' :
+                          selectedQAItem.type === 'excel' ? 'Excel' : 'Item'
+                        : 'Item'} Summary to Confluence</span>
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -1612,6 +1689,27 @@ ${excel.url}
       {showToast && (
         <div style={{position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)', background: '#2684ff', color: 'white', padding: '16px 32px', borderRadius: 8, zIndex: 9999, fontWeight: 600, fontSize: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.15)'}}>
           Saved to Confluence! Please refresh this Confluence page to see your changes.
+        </div>
+      )}
+      {showPreview && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/30">
+          <div className="bg-confluence-blue/95 rounded-2xl shadow-2xl p-6 w-full max-w-3xl relative border border-white/20">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="font-semibold text-white text-lg">Preview of Updated Content</h4>
+              <button onClick={() => setShowPreview(false)} className="text-white hover:text-red-400 font-bold text-base px-3 py-1 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-red-400">Close Preview</button>
+            </div>
+            <div
+              className="overflow-y-auto bg-white/90 rounded-xl p-6 border border-white/30 shadow-inner min-h-[120px] max-h-[400px] text-gray-900 text-base font-normal"
+              style={{
+                fontFamily: 'inherit',
+                boxSizing: 'border-box',
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap',
+                marginBottom: 0,
+              }}
+              dangerouslySetInnerHTML={{ __html: previewContent || '' }}
+            />
+          </div>
         </div>
       )}
     </div>
