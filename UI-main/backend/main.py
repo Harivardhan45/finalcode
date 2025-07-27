@@ -110,6 +110,17 @@ class SaveToConfluenceRequest(BaseModel):
     space_key: Optional[str] = None
     page_title: str
     content: str
+    mode: Optional[str] = "append"
+
+class PreviewSaveToConfluenceRequest(BaseModel):
+    space_key: Optional[str] = None
+    page_title: str
+    content: str
+    mode: str
+
+class PreviewSaveToConfluenceResponse(BaseModel):
+    preview_content: str
+    diff: str
 
 class AnalyzeGoalRequest(BaseModel):
     goal: str
@@ -1351,9 +1362,20 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
         if not page:
             raise HTTPException(status_code=404, detail="Page not found")
         page_id = page["id"]
-        # Append new content to existing content
+        
+        # Handle different save modes
         existing_content = page["body"]["storage"]["value"]
-        updated_body = existing_content + "<hr/>" + request.content
+        mode = request.mode or "append"
+        
+        if mode == "append":
+            # Append new content to existing content
+            updated_body = existing_content + "<hr/>" + request.content
+        elif mode == "overwrite":
+            # Replace entire content
+            updated_body = request.content
+        else:
+            raise HTTPException(status_code=400, detail="Invalid mode. Use 'append' or 'overwrite'")
+        
         # Update page
         confluence.update_page(
             page_id=page_id,
@@ -1362,6 +1384,40 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
             representation="storage"
         )
         return {"message": "Page updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/preview-save-to-confluence")
+async def preview_save_to_confluence(request: PreviewSaveToConfluenceRequest, req: Request):
+    """
+    Preview the content that would be saved to a Confluence page.
+    """
+    try:
+        confluence = init_confluence()
+        space_key = auto_detect_space(confluence, request.space_key)
+        # Get page by title, expand body.storage
+        page = confluence.get_page_by_title(space=space_key, title=request.page_title, expand='body.storage')
+        if not page:
+            raise HTTPException(status_code=404, detail="Page not found")
+        
+        # Handle different save modes for preview
+        existing_content = page["body"]["storage"]["value"]
+        
+        if request.mode == "append":
+            # Preview append mode
+            preview_content = existing_content + "<hr/>" + request.content
+            diff = f"<div style='color: green;'>+ {request.content}</div>"
+        elif request.mode == "overwrite":
+            # Preview overwrite mode
+            preview_content = request.content
+            diff = f"<div style='color: red;'>- {existing_content}</div><div style='color: green;'>+ {request.content}</div>"
+        else:
+            raise HTTPException(status_code=400, detail="Invalid mode. Use 'append' or 'overwrite'")
+        
+        return {
+            "preview_content": preview_content,
+            "diff": diff
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

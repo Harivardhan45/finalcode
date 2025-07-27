@@ -141,6 +141,19 @@ export interface SaveToConfluenceRequest {
   space_key: string;
   page_title: string;
   content: string;
+  mode?: string;
+}
+
+export interface PreviewSaveToConfluenceRequest {
+  space_key: string;
+  page_title: string;
+  content: string;
+  mode: string;
+}
+
+export interface PreviewSaveToConfluenceResponse {
+  preview_content: string;
+  diff: string;
 }
 
 export interface SaveToConfluenceResponse {
@@ -299,6 +312,13 @@ class ApiService {
 
   async saveToConfluence(request: SaveToConfluenceRequest): Promise<SaveToConfluenceResponse> {
     return this.makeRequest<SaveToConfluenceResponse>('/save-to-confluence', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async previewSaveToConfluence(request: PreviewSaveToConfluenceRequest): Promise<PreviewSaveToConfluenceResponse> {
+    return this.makeRequest<PreviewSaveToConfluenceResponse>('/preview-save-to-confluence', {
       method: 'POST',
       body: JSON.stringify(request),
     });
