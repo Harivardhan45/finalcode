@@ -36,6 +36,7 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
   const [isProcessing, setIsProcessing] = useState(false);
   const [isQALoading, setIsQALoading] = useState(false);
   const [isTypingNewQuestion, setIsTypingNewQuestion] = useState(false);
+  const [currentVideoForQa, setCurrentVideoForQa] = useState<string>('');
   const [exportFormat, setExportFormat] = useState('markdown');
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [pages, setPages] = useState<string[]>([]);
@@ -167,17 +168,18 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
   };
 
   const addQuestion = async () => {
-    if (!newQuestion.trim() || !selectedVideo) {
-      console.log('Missing question or selected video:', { newQuestion, selectedVideo });
+    const videoIdToUse = currentVideoForQa || selectedVideo;
+    if (!newQuestion.trim() || !videoIdToUse) {
+      console.log('Missing question or selected video:', { newQuestion, videoIdToUse });
       return;
     }
     
-    console.log('Adding question:', newQuestion, 'for video:', selectedVideo);
+    console.log('Adding question:', newQuestion, 'for video:', videoIdToUse);
     setIsQALoading(true);
     
     try {
       // Find the video to get its corresponding page title
-      const video = videos.find(v => v.id === selectedVideo);
+      const video = videos.find(v => v.id === videoIdToUse);
       if (!video) {
         throw new Error('Video not found');
       }
@@ -193,7 +195,7 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
       const answer = result.answer || 'AI-generated answer based on the video content analysis...';
       
       setVideos(prev => prev.map(v => 
-        v.id === selectedVideo 
+        v.id === videoIdToUse 
           ? { 
               ...v, 
               qa: [...(v.qa || []), { question: newQuestion, answer: answer }]
@@ -202,7 +204,7 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
       ));
       
       // Add to Q&A history
-      setQaHistory(prev => [{ question: newQuestion, answer: answer, videoId: selectedVideo }, ...prev]);
+      setQaHistory(prev => [{ question: newQuestion, answer: answer, videoId: videoIdToUse }, ...prev]);
       setCurrentQaHistoryIndex(0);
       
       setNewQuestion('');
@@ -216,12 +218,18 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
     }
   };
 
+  // Helper function to get filtered Q&A history for a specific video
+  const getVideoHistory = (videoId: string) => {
+    return qaHistory.filter(item => item.videoId === videoId);
+  };
+
   // When currentQaHistoryIndex changes, update displayed question/answer
   useEffect(() => {
     if (currentQaHistoryIndex !== null && qaHistory[currentQaHistoryIndex] && !isTypingNewQuestion) {
       const historyItem = qaHistory[currentQaHistoryIndex];
       setNewQuestion(historyItem.question);
       setSelectedVideo(historyItem.videoId);
+      setCurrentVideoForQa(historyItem.videoId);
     }
   }, [currentQaHistoryIndex, qaHistory, isTypingNewQuestion]);
 
@@ -503,7 +511,12 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
               <div key={video.id} className="border border-white/30 rounded-xl overflow-hidden bg-white/60 backdrop-blur-xl shadow-lg">
                 <div 
                   className="p-4 bg-white/50 backdrop-blur-sm cursor-pointer hover:bg-white/70 transition-colors"
-                  onClick={() => setExpandedVideo(expandedVideo === video.id ? null : video.id)}
+                  onClick={() => {
+                    setExpandedVideo(expandedVideo === video.id ? null : video.id);
+                    if (expandedVideo !== video.id) {
+                      setCurrentVideoForQa(video.id);
+                    }
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -581,30 +594,38 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                         <h5 className="font-semibold text-gray-800 mb-3">Questions & Answers</h5>
                         
                         {/* --- History Dropdown for Q&A --- */}
-                        {qaHistory.length > 0 && (
-                          <div className="mb-4 flex items-center space-x-2">
-                            <label className="text-sm font-medium text-gray-700">Q&A History:</label>
-                            <select
-                              className="border border-gray-300 rounded px-2 py-1 text-sm"
-                              value={currentQaHistoryIndex ?? 0}
-                              onChange={e => setCurrentQaHistoryIndex(Number(e.target.value))}
-                            >
-                              {qaHistory.map((item, idx) => (
-                                <option key={idx} value={idx}>
-                                  {item.question.length > 40 ? item.question.slice(0, 40) + '...' : item.question}
-                                </option>
-                              ))}
-                            </select>
-                            {currentQaHistoryIndex !== null && currentQaHistoryIndex !== 0 && (
-                              <button
-                                className="text-xs text-confluence-blue underline ml-2"
-                                onClick={() => setCurrentQaHistoryIndex(0)}
+                        {(() => {
+                          const videoHistory = getVideoHistory(video.id);
+                          const isCurrentVideo = currentVideoForQa === video.id;
+                          return videoHistory.length > 0 && isCurrentVideo && (
+                            <div className="mb-4 flex items-center space-x-2">
+                              <label className="text-sm font-medium text-gray-700">Q&A History:</label>
+                              <select
+                                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                value={currentQaHistoryIndex ?? 0}
+                                onChange={e => {
+                                  const selectedIndex = Number(e.target.value);
+                                  setCurrentQaHistoryIndex(selectedIndex);
+                                  setCurrentVideoForQa(video.id);
+                                }}
                               >
-                                Go to Latest
-                              </button>
-                            )}
-                          </div>
-                        )}
+                                {videoHistory.map((item, idx) => (
+                                  <option key={idx} value={qaHistory.findIndex(h => h === item)}>
+                                    {item.question.length > 40 ? item.question.slice(0, 40) + '...' : item.question}
+                                  </option>
+                                ))}
+                              </select>
+                              {currentQaHistoryIndex !== null && currentQaHistoryIndex !== 0 && (
+                                <button
+                                  className="text-xs text-confluence-blue underline ml-2"
+                                  onClick={() => setCurrentQaHistoryIndex(0)}
+                                >
+                                  Go to Latest
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {/* --- End History Dropdown --- */}
                         
                         <div className="space-y-4">
@@ -622,6 +643,7 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                           {/* Add New Question */}
                           <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20">
                             <div className="flex space-x-2 items-center" onClick={() => {
+                              setCurrentVideoForQa(video.id);
                               setIsTypingNewQuestion(true);
                               setCurrentQaHistoryIndex(null);
                             }}>
@@ -630,11 +652,13 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                                   value={newQuestion}
                                   onChange={(value) => {
                                     setNewQuestion(value);
+                                    setCurrentVideoForQa(video.id);
                                     setIsTypingNewQuestion(true);
                                     setCurrentQaHistoryIndex(null);
                                   }}
                                   onConfirm={(value) => {
                                     setNewQuestion(value);
+                                    setCurrentVideoForQa(video.id);
                                     setIsTypingNewQuestion(false);
                                   }}
                                   inputPlaceholder="Ask a question about this video..."
@@ -643,6 +667,7 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                               <button
                                 onClick={() => {
                                   setSelectedVideo(video.id);
+                                  setCurrentVideoForQa(video.id);
                                   setIsTypingNewQuestion(false);
                                   setCurrentQaHistoryIndex(null);
                                   addQuestion();
