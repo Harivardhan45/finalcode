@@ -1286,6 +1286,114 @@ ${JSON.stringify(chartData.data, null, 2)}
                               )}
                             </button>
                           </div>
+                          
+                          {/* Save to Confluence Section for Chart */}
+                          <div className="pt-4 border-t border-white/20 space-y-3">
+                            <h4 className="font-semibold text-gray-800 text-sm">Save Chart to Confluence</h4>
+                            <div className="flex items-center space-x-2 mb-2">
+                              <label htmlFor="chart-save-mode" className="text-sm font-medium text-gray-700">Save Mode:</label>
+                              <select
+                                id="chart-save-mode"
+                                value={saveMode}
+                                onChange={e => setSaveMode(e.target.value)}
+                                className="px-3 py-1 border border-white/30 rounded text-sm focus:ring-2 focus:ring-confluence-blue bg-white/70 backdrop-blur-sm"
+                              >
+                                <option value="append">Append</option>
+                                <option value="overwrite">Overwrite</option>
+                              </select>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <button
+                                onClick={async () => {
+                                  setIsPreviewLoading(true);
+                                  setShowPreview(false);
+                                  try {
+                                    const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                                    if (!space || !page) {
+                                      alert('Confluence space or page not specified in macro src URL.');
+                                      return;
+                                    }
+                                    if (!chartData) {
+                                      alert('No chart available to save.');
+                                      return;
+                                    }
+                                    
+                                    // Create chart content for Confluence
+                                    const chartContent = `
+<div class="chart-container">
+  <h3>${chartData.title}</h3>
+  <p><strong>Chart Type:</strong> ${chartData.type.charAt(0).toUpperCase() + chartData.type.slice(1)} Chart</p>
+  <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+  <div class="chart-preview">
+    <img src="${chartData.data.chartUrl || ''}" alt="${chartData.title}" style="max-width: 100%; height: auto;" />
+  </div>
+  <p><em>Chart generated from ${chartData.data.imageId ? 'image data' : chartData.data.tableId ? 'table data' : chartData.data.excelId ? 'excel data' : 'data source'}</em></p>
+</div>`;
+                                    
+                                    const preview = await apiService.previewSaveToConfluence({
+                                      space_key: space,
+                                      page_title: page,
+                                      content: chartContent,
+                                      mode: saveMode,
+                                    });
+                                    setPreviewContent(preview.preview_content);
+                                    setPreviewDiff(preview.diff);
+                                    setShowPreview(true);
+                                  } catch (err: any) {
+                                    alert('Failed to generate preview: ' + (err.message || err));
+                                  } finally {
+                                    setIsPreviewLoading(false);
+                                  }
+                                }}
+                                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors border border-white/10"
+                              >
+                                {isPreviewLoading ? "Loading..." : "Preview Chart"}
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                                  if (!space || !page) {
+                                    alert('Confluence space or page not specified in macro src URL.');
+                                    return;
+                                  }
+                                  if (!chartData) {
+                                    alert('No chart available to save.');
+                                    return;
+                                  }
+                                  
+                                  try {
+                                    // Create chart content for Confluence
+                                    const chartContent = `
+<div class="chart-container">
+  <h3>${chartData.title}</h3>
+  <p><strong>Chart Type:</strong> ${chartData.type.charAt(0).toUpperCase() + chartData.type.slice(1)} Chart</p>
+  <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+  <div class="chart-preview">
+    <img src="${chartData.data.chartUrl || ''}" alt="${chartData.title}" style="max-width: 100%; height: auto;" />
+  </div>
+  <p><em>Chart generated from ${chartData.data.imageId ? 'image data' : chartData.data.tableId ? 'table data' : chartData.data.excelId ? 'excel data' : 'data source'}</em></p>
+</div>`;
+                                    
+                                    await apiService.saveToConfluence({
+                                      space_key: space,
+                                      page_title: page,
+                                      content: chartContent,
+                                      mode: saveMode,
+                                    });
+                                    setShowToast(true);
+                                    setTimeout(() => setShowToast(false), 3000);
+                                  } catch (err: any) {
+                                    alert('Failed to save chart to Confluence: ' + (err.message || err));
+                                  }
+                                }}
+                                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
+                              >
+                                <Save className="w-4 h-4" />
+                                <span>Save Chart to Confluence</span>
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
