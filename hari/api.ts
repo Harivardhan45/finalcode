@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://backend-5v02.onrender.com';
+const API_BASE_URL = 'https://finalcode-backend.onrender.com'; // Replace with your backend render URL
 
 export interface SearchRequest {
   space_key: string;
@@ -42,7 +42,6 @@ export interface SearchResponse {
   response: string;
   pages_analyzed: number;
   page_titles: string[];
-  source?: string;
 }
 
 export interface CodeResponse {
@@ -115,9 +114,7 @@ export interface ImageSummaryRequest {
 export interface ChartRequest {
   space_key: string;
   page_title: string;
-  image_url?: string;
-  table_html?: string;
-  excel_url?: string;
+  image_url: string;
   chart_type: string;
   filename: string;
   format: string;
@@ -141,44 +138,11 @@ export interface SaveToConfluenceRequest {
   space_key: string;
   page_title: string;
   content: string;
-  mode?: string;
-}
-
-export interface PreviewSaveToConfluenceRequest {
-  space_key: string;
-  page_title: string;
-  content: string;
-  mode: string;
-}
-
-export interface PreviewSaveToConfluenceResponse {
-  preview_content: string;
-  diff: string;
 }
 
 export interface SaveToConfluenceResponse {
   success: boolean;
   message?: string;
-}
-
-export interface InsightSourcesResponse {
-  images: string[];
-  tables: string[]; // HTML strings
-  excels: string[]; // URLs
-}
-
-export interface TableSummaryRequest {
-  space_key: string;
-  page_title: string;
-  table_html: string;
-}
-export interface ExcelSummaryRequest {
-  space_key: string;
-  page_title: string;
-  excel_url: string;
-}
-export interface SummaryResponse {
-  summary: string;
 }
 
 class ApiService {
@@ -253,8 +217,8 @@ class ApiService {
     });
   }
 
-  async getImages(spaceKey: string, pageTitle: string): Promise<InsightSourcesResponse> {
-    return this.makeRequest<InsightSourcesResponse>(`/images/${spaceKey}/${encodeURIComponent(pageTitle)}`);
+  async getImages(spaceKey: string, pageTitle: string): Promise<{ images: string[] }> {
+    return this.makeRequest<{ images: string[] }>(`/images/${spaceKey}/${encodeURIComponent(pageTitle)}`);
   }
 
   async imageSummary(request: ImageRequest): Promise<ImageResponse> {
@@ -317,24 +281,8 @@ class ApiService {
     });
   }
 
-  async previewSaveToConfluence(request: PreviewSaveToConfluenceRequest): Promise<PreviewSaveToConfluenceResponse> {
-    return this.makeRequest<PreviewSaveToConfluenceResponse>('/preview-save-to-confluence', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  }
-
-  async tableSummary(request: TableSummaryRequest): Promise<SummaryResponse> {
-    return this.makeRequest<SummaryResponse>('/table-summary', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  }
-  async excelSummary(request: ExcelSummaryRequest): Promise<SummaryResponse> {
-    return this.makeRequest<SummaryResponse>('/excel-summary', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
+  async getFeatureHistory(feature: string): Promise<{ feature: string; history: string[] }> {
+    return this.makeRequest<{ feature: string; history: string[] }>(`/api/history?feature=${encodeURIComponent(feature)}`);
   }
 
   async sendToGoogleChat(summary: string): Promise<{ status: string; message: string }> {

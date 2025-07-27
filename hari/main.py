@@ -1,3 +1,4 @@
+
 import os
 import io
 import re
@@ -8,7 +9,7 @@ import traceback
 import warnings
 import requests
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Body
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fpdf import FPDF
@@ -20,6 +21,7 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 import difflib
 import base64
+from threading import Lock
 
 # Load environment variables
 load_dotenv()
@@ -32,8 +34,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
-        "https://backend-5v02.onrender.com",  # Add your Render URL
-        "https://frontend-rrpd.onrender.com",  # Add frontend domain
+        "https://finalcode-backend.onrender.com",  # Add your Render URL
+        "https://finalcode-frontend.onrender.com",  # Add frontend domain
         "*"  # For development, you can allow all origins
     ],
     allow_credentials=True,
@@ -87,16 +89,14 @@ class ImageRequest(BaseModel):
 class ImageSummaryRequest(BaseModel):
     space_key: str
     page_title: str
-    image_url: Optional[str] = None
+    image_url: str
     summary: str
     question: str
 
 class ChartRequest(BaseModel):
     space_key: str
     page_title: str
-    image_url: Optional[str] = None
-    table_html: Optional[str] = None
-    excel_url: Optional[str] = None
+    image_url: str
     chart_type: str
     filename: str
     format: str
@@ -110,17 +110,6 @@ class SaveToConfluenceRequest(BaseModel):
     space_key: Optional[str] = None
     page_title: str
     content: str
-    mode: Optional[str] = "append"
-
-class PreviewSaveToConfluenceRequest(BaseModel):
-    space_key: Optional[str] = None
-    page_title: str
-    content: str
-    mode: str
-
-class PreviewSaveToConfluenceResponse(BaseModel):
-    preview_content: str
-    diff: str
 
 class AnalyzeGoalRequest(BaseModel):
     goal: str
@@ -130,16 +119,6 @@ class AnalyzeGoalResponse(BaseModel):
     tools: list[str]
     pages: list[str]
     reasoning: str
-
-class TableSummaryRequest(BaseModel):
-    space_key: str
-    page_title: str
-    table_html: str
-
-class ExcelSummaryRequest(BaseModel):
-    space_key: str
-    page_title: str
-    excel_url: str
 
 # Helper functions
 def remove_emojis(text):
@@ -243,68 +222,61 @@ def auto_detect_space(confluence, space_key: Optional[str] = None) -> str:
         return spaces[0]["key"]
     raise HTTPException(status_code=400, detail="Multiple spaces found. Please specify a space_key.")
 
-def search_web_google(query, num_results=5):
-    import os
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-    SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
-    url = "https://www.googleapis.com/customsearch/v1"
-    params = {
-        "key": GOOGLE_API_KEY,
-        "cx": SEARCH_ENGINE_ID,
-        "q": query,
-        "num": num_results
-    }
+# --- BEGIN: Feature Search History Storage ---
+# In-memory persistent store for feature search history
+feature_history_store = {}
+feature_history_lock = Lock()
+
+# Helper to add a search term to history
+def add_to_feature_history(feature: str, search_term: str):
+    with feature_history_lock:
+        if feature not in feature_history_store:
+            feature_history_store[feature] = []
+        # Avoid duplicates in a row, keep only last 20
+        if not feature_history_store[feature] or feature_history_store[feature][-1] != search_term:
+            feature_history_store[feature].append(search_term)
+            feature_history_store[feature] = feature_history_store[feature][-20:]
+# --- END: Feature Search History Storage ---
+
+# --- Google Chat Integration ---
+def send_to_google_chat(summary: str) -> bool:
+    """
+    Sends the summary to Google Chat using the webhook URL from env var.
+    Returns True if successful, False otherwise.
+    """
+    webhook_url = os.getenv("GOOGLE_CHAT_WEBHOOK_URL")
+    if not webhook_url:
+        raise ValueError("GOOGLE_CHAT_WEBHOOK_URL not set in environment variables.")
+    payload = {"text": f"AI Summary:\n{summary}"}
+    headers = {"Content-Type": "application/json"}
     try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        results = response.json().get("items", [])
-        if not results:
-            return ""
-        snippets = []
-        for item in results:
-            title = item.get("title", "")
-            snippet = item.get("snippet", "")
-            link = item.get("link", "")
-            snippets.append(f"{title}\n{snippet}\n{link}")
-        return "\n\n".join(snippets)
+        resp = requests.post(webhook_url, json=payload, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            return True
+        else:
+            print(f"Google Chat webhook error: {resp.status_code} {resp.text}")
+            return False
     except Exception as e:
-        return f"❌ Google Search error: {e}"
+        print(f"Exception sending to Google Chat: {e}")
+        return False
 
-def hybrid_rag(prompt, api_key=None):
-    import google.generativeai as genai
-    if api_key:
-        genai.configure(api_key=api_key)
-    else:
-        # fallback to default
-        from os import getenv
-        genai.configure(api_key=getenv('GENAI_API_KEY_1'))
-    model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
-    web_context = search_web_google(prompt)
-    if not web_context.strip():
-        response = model.generate_content(prompt)
-        answer = response.parts[0].text.strip() if response.parts else "⚠️ No answer from Gemini."
-        return answer, "llm"
-    final_prompt = f"""
-Use the following web search results to answer the question accurately.
-If relevant, include links as citations.
-
-Web Results:
-{web_context}
-
-Question: {prompt}
-
-Answer:
-"""
+@app.post("/send-to-google-chat")
+async def send_to_google_chat_endpoint(payload: dict = Body(...)):
+    """
+    Endpoint to send a summary to Google Chat.
+    Expects JSON: { "summary": "..." }
+    """
+    summary = payload.get("summary")
+    if not summary:
+        raise HTTPException(status_code=400, detail="Missing 'summary' in request body.")
     try:
-        response = model.generate_content(final_prompt)
-        text = response.parts[0].text.strip() if response.parts else "⚠️ No answer from Gemini."
-        if "do not contain" in text.lower():
-            response = model.generate_content(prompt)
-            answer = response.parts[0].text.strip() if response.parts else "⚠️ No fallback answer from Gemini."
-            return answer, "llm"
-        return text, "hybrid_rag"
+        success = send_to_google_chat(summary)
+        if success:
+            return {"status": "success", "message": "Summary sent to Google Chat."}
+        else:
+            return {"status": "failure", "message": "Failed to send summary to Google Chat."}
     except Exception as e:
-        return f"❌ Gemini error: {e}", "hybrid_rag"
+        raise HTTPException(status_code=500, detail=f"Error sending to Google Chat: {str(e)}")
 
 # API Endpoints
 @app.get("/")
@@ -374,57 +346,17 @@ async def ai_powered_search(request: SearchRequest, req: Request):
             f"Instructions: Begin with the answer based on the context above. Then, if applicable, supplement with general knowledge."
         )
         
-        structured_prompt = (
-            f"Answer the following question. If the provided context directly answers the question, use it. Otherwise, answer from your own knowledge. "
-            f"Return your answer as JSON: {{'answer': <your answer>, 'supported_by_context': true/false, 'can_answer': true/false}}. "
-            f"If the answer is not in the context but you can answer from your own knowledge, set 'supported_by_context' to false and 'can_answer' to true. "
-            f"If you cannot answer at all, set both to false and return an empty or generic answer.\n"
-            f"Context:\n{full_context}\n\n"
-            f"Question: {request.query}"
-        )
-        response = ai_model.generate_content(structured_prompt)
-        import json as _json
-        source = "llm"
-        try:
-            result = _json.loads(response.text.strip())
-            ai_response = result.get('answer', '').strip()
-            supported = result.get('supported_by_context', False)
-            can_answer = result.get('can_answer', True)
-            if not supported and not can_answer:
-                ai_response, source = hybrid_rag(request.query, api_key=api_key)
-        except Exception:
-            ai_response = response.text.strip()
-            supported = None
-            can_answer = True
-            # Try ast.literal_eval for Python-style dict
-            import ast, re
-            try:
-                result = ast.literal_eval(response.text.strip())
-                if isinstance(result, dict):
-                    ai_response = result.get('answer', '').strip()
-                    supported = result.get('supported_by_context', False)
-                    can_answer = result.get('can_answer', True)
-                    if not supported and not can_answer:
-                        ai_response, source = hybrid_rag(request.query, api_key=api_key)
-            except Exception:
-                # Regex fallback for supported_by_context: false and can_answer: false
-                if re.search(r"supported_by_context['\"]?\s*[:=]\s*false", response.text.strip(), re.IGNORECASE) and re.search(r"can_answer['\"]?\s*[:=]\s*false", response.text.strip(), re.IGNORECASE):
-                    ai_response, source = hybrid_rag(request.query, api_key=api_key)
-            # If ast.literal_eval succeeded and ai_response is still a dict, extract 'answer'
-            if isinstance(ai_response, dict):
-                ai_response = ai_response.get('answer', '').strip()
-            # If ai_response is still a string that looks like a dict, extract 'answer' value with regex
-            elif isinstance(ai_response, str):
-                match = re.search(r"['\"]?answer['\"]?\s*:\s*['\"]([^'\"]+)['\"]", ai_response)
-                if match:
-                    ai_response = match.group(1).strip()
-        page_titles = [p["title"] for p in selected_pages]
-        final_response = ai_response
+        response = ai_model.generate_content(prompt)
+        ai_response = response.text.strip()
+        
+        # --- Add to feature search history ---
+        add_to_feature_history('search', request.query)
+        # -------------------------------------
+        
         return {
-            "response": final_response,
+            "response": ai_response,
             "pages_analyzed": len(selected_pages),
-            "page_titles": page_titles,
-            "source": source
+            "page_titles": [p["title"] for p in selected_pages]
         }
         
     except Exception as e:
@@ -533,6 +465,9 @@ async def video_summarizer(request: VideoRequest, req: Request):
         
         # Q&A
         if request.question:
+            # --- Add to feature search history ---
+            add_to_feature_history('video', request.question)
+            # -------------------------------------
             qa_prompt = (
                 f"Based on the following video transcript, answer this question: {request.question}\n\n"
                 f"Transcript: {transcript_text[:3000]}\n\n"
@@ -644,6 +579,9 @@ async def code_assistant(request: CodeRequest, req: Request):
         # Modify code if instruction provided
         modified_code = None
         if request.instruction:
+            # --- Add to feature search history ---
+            add_to_feature_history('code', request.instruction)
+            # -------------------------------------
             alteration_prompt = (
                 f"The following is a piece of code extracted from a Confluence page:\n\n{cleaned_code}\n\n"
                 f"Please modify this code according to the following instruction:\n'{request.instruction}'\n\n"
@@ -808,6 +746,9 @@ async def impact_analyzer(request: ImpactRequest, req: Request):
         # Q&A if question provided
         qa_answer = None
         if request.question:
+            # --- Add to feature search history ---
+            add_to_feature_history('impact', request.question)
+            # -------------------------------------
             context = (
                 f"Summary: {impact_text[:1000]}\n"
                 f"Recommendations: {rec_text[:1000]}\n"
@@ -1012,6 +953,9 @@ Respond **exactly** in this format with dynamic insights, no extra text outside 
         # Q&A if question provided
         ai_response = None
         if request.question:
+            # --- Add to feature search history ---
+            add_to_feature_history('test', request.question)
+            # -------------------------------------
             context = f"📘 Test Strategy:\n{strategy_text}\n🌐 Cross-Platform Testing:\n{cross_text}"
             if sensitivity_text:
                 context += f"\n🔒 Sensitivity Analysis:\n{sensitivity_text}"
@@ -1037,7 +981,7 @@ Respond **exactly** in this format with dynamic insights, no extra text outside 
 
 @app.get("/images/{space_key}/{page_title}")
 async def get_images(space_key: Optional[str] = None, page_title: str = ""):
-    """Get all images, tables, and Excel attachments from a specific page"""
+    """Get all images from a specific page"""
     try:
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, space_key)
@@ -1054,32 +998,12 @@ async def get_images(space_key: Optional[str] = None, page_title: str = ""):
         soup = BeautifulSoup(html_content, "html.parser")
         base_url = os.getenv("CONFLUENCE_BASE_URL")
         
-        # Images
         image_urls = list({
             base_url + img["src"] if img["src"].startswith("/") else img["src"]
             for img in soup.find_all("img") if img.get("src")
         })
         
-        # Tables (as HTML strings)
-        tables = [str(table) for table in soup.find_all("table")]
-        
-        # Excel attachments
-        excels = []
-        try:
-            attachments = confluence.get_attachments_from_content(page_id=page_id, start=0, limit=100)
-            for att in attachments.get("results", []):
-                title = att.get("title", "")
-                if title.lower().endswith((".xls", ".xlsx")):
-                    # Compose download URL
-                    download_link = att["_links"].get("download")
-                    if download_link:
-                        url = base_url.rstrip("/") + download_link
-                        excels.append(url)
-        except Exception as e:
-            # If attachment fetch fails, just skip excels
-            pass
-        
-        return {"images": image_urls, "tables": tables, "excels": excels}
+        return {"images": image_urls}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1123,6 +1047,11 @@ async def image_summary(request: ImageRequest, req: Request):
         response = ai_model.generate_content([uploaded, prompt])
         summary = response.text.strip()
         
+        # --- Add to feature search history ---
+        if hasattr(request, 'question') and request.question:
+            add_to_feature_history('image', request.question)
+        # -------------------------------------
+        
         return {"summary": summary}
         
     except Exception as e:
@@ -1130,140 +1059,119 @@ async def image_summary(request: ImageRequest, req: Request):
 
 @app.post("/image-qa")
 async def image_qa(request: ImageSummaryRequest, req: Request):
-    """Generate AI response for a question about an image, table, or excel (uses summary if no image_url)"""
+    """Generate AI response for a question about an image"""
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
         ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
-        # If image_url is provided and non-empty, use image logic
-        if getattr(request, 'image_url', None):
-            image_url = request.image_url
-            if image_url:
-                # Download image
-                import requests
-                auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
-                response = requests.get(image_url, auth=auth)
-                if response.status_code != 200:
-                    raise HTTPException(status_code=404, detail="Failed to fetch image")
-                image_bytes = response.content
-                # Upload to Gemini
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-                    tmp_img.write(image_bytes)
-                    tmp_img.flush()
-                    uploaded_img = genai.upload_file(
-                        path=tmp_img.name,
-                        mime_type="image/png",
-                        display_name=f"qa_image_{request.page_title}.png"
-                    )
-                full_prompt = (
-                    "You're analyzing a technical image extracted from documentation. "
-                    "Answer the user's question based on the visual content of the image, "
-                    "as well as the summary below.\n\n"
-                    f"Summary:\n{request.summary}\n\n"
-                    f"User Question:\n{request.question}"
-                )
-                ai_response = ai_model.generate_content([uploaded_img, full_prompt])
-                answer = ai_response.text.strip()
-                return {"answer": answer}
-        # Otherwise, use summary-only logic (for tables/excels)
-        text_prompt = (
-            "You are analyzing a table, Excel sheet, or text extracted from documentation. "
-            "Answer the user's question based on the summary below.\n\n"
+        
+        # Download image
+        auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
+        response = requests.get(request.image_url, auth=auth)
+        if response.status_code != 200:
+            raise HTTPException(status_code=404, detail="Failed to fetch image")
+        
+        image_bytes = response.content
+        
+        # Upload to Gemini
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+            tmp_img.write(image_bytes)
+            tmp_img.flush()
+            uploaded_img = genai.upload_file(
+                path=tmp_img.name,
+                mime_type="image/png",
+                display_name=f"qa_image_{request.page_title}.png"
+            )
+        
+        full_prompt = (
+            "You're analyzing a technical image extracted from documentation. "
+            "Answer the user's question based on the visual content of the image, "
+            "as well as the summary below.\n\n"
             f"Summary:\n{request.summary}\n\n"
             f"User Question:\n{request.question}"
         )
-        ai_response = ai_model.generate_content(text_prompt)
+        
+        ai_response = ai_model.generate_content([uploaded_img, full_prompt])
         answer = ai_response.text.strip()
+        
         return {"answer": answer}
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/create-chart")
 async def create_chart(request: ChartRequest, req: Request):
-    """Create chart from image, table, or Excel data"""
+    """Create chart from image data"""
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
         ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
+        
         import pandas as pd
         import matplotlib.pyplot as plt
         import seaborn as sns
         from io import StringIO
+        
+        # Download image
+        auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
+        response = requests.get(request.image_url, auth=auth)
+        if response.status_code != 200:
+            raise HTTPException(status_code=404, detail="Failed to fetch image")
+        
+        image_bytes = response.content
+        
+        # Upload to Gemini for data extraction
         import tempfile
-        import requests
-        import base64
-        import io
-        # Priority: excel_url > table_html > image_url
-        df = None
-        if request.excel_url:
-            # Download and read Excel file
-            auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
-            response = requests.get(request.excel_url, auth=auth)
-            if response.status_code != 200:
-                raise HTTPException(status_code=404, detail="Failed to fetch Excel file")
-            excel_bytes = response.content
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_xls:
-                tmp_xls.write(excel_bytes)
-                tmp_xls.flush()
-                df = pd.read_excel(tmp_xls.name)
-        elif request.table_html:
-            # Parse HTML table to DataFrame
-            dfs = pd.read_html(request.table_html)
-            if not dfs:
-                raise HTTPException(status_code=400, detail="No table found in HTML")
-            df = dfs[0]
-        elif request.image_url:
-            # Existing image logic
-            auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
-            response = requests.get(request.image_url, auth=auth)
-            if response.status_code != 200:
-                raise HTTPException(status_code=404, detail="Failed to fetch image")
-            image_bytes = response.content
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-                tmp_img.write(image_bytes)
-                tmp_img.flush()
-                uploaded_img = genai.upload_file(
-                    path=tmp_img.name,
-                    mime_type="image/png",
-                    display_name=f"chart_image_{request.page_title}.png"
-                )
-            graph_prompt = (
-                "You're looking at a Likert-style bar chart image or table. Extract the full numeric table represented by the chart.\n"
-                "Return only the raw CSV table: no markdown, no comments, no code blocks.\n"
-                "The first column must be the response category (e.g., Strongly Agree), followed by columns for group counts (e.g., Students, Lecturers, Staff, Total).\n"
-                "Ensure all values are numeric and the CSV is properly aligned. Do NOT summarize—just output the table."
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+            tmp_img.write(image_bytes)
+            tmp_img.flush()
+            uploaded_img = genai.upload_file(
+                path=tmp_img.name,
+                mime_type="image/png",
+                display_name=f"chart_image_{request.page_title}.png"
             )
-            graph_response = ai_model.generate_content([uploaded_img, graph_prompt])
-            csv_text = graph_response.text.strip()
-            def clean_ai_csv(raw_text):
-                lines = raw_text.strip().splitlines()
-                clean_lines = [
-                    line.strip() for line in lines
-                    if ',' in line and not line.strip().startswith("```") and not line.lower().startswith("here")
-                ]
-                header = clean_lines[0].split(",")
-                cleaned_data = [clean_lines[0]]
-                for line in clean_lines[1:]:
-                    if line.split(",")[0] != header[0]:
-                        cleaned_data.append(line)
-                return "\n".join(cleaned_data)
-            cleaned_csv = clean_ai_csv(csv_text)
-            df = pd.read_csv(StringIO(cleaned_csv))
-        else:
-            raise HTTPException(status_code=400, detail="No data source provided for chart generation")
-        # Clean and process DataFrame
+        
+        graph_prompt = (
+            "You're looking at a Likert-style bar chart image or table. Extract the full numeric table represented by the chart.\n"
+            "Return only the raw CSV table: no markdown, no comments, no code blocks.\n"
+            "The first column must be the response category (e.g., Strongly Agree), followed by columns for group counts (e.g., Students, Lecturers, Staff, Total).\n"
+            "Ensure all values are numeric and the CSV is properly aligned. Do NOT summarize—just output the table."
+        )
+        
+        graph_response = ai_model.generate_content([uploaded_img, graph_prompt])
+        csv_text = graph_response.text.strip()
+        
+        # Clean CSV data
+        def clean_ai_csv(raw_text):
+            lines = raw_text.strip().splitlines()
+            clean_lines = [
+                line.strip() for line in lines
+                if ',' in line and not line.strip().startswith("```") and not line.lower().startswith("here")
+            ]
+            header = clean_lines[0].split(",")
+            cleaned_data = [clean_lines[0]]
+            for line in clean_lines[1:]:
+                if line.split(",")[0] != header[0]:
+                    cleaned_data.append(line)
+            return "\n".join(cleaned_data)
+        
+        cleaned_csv = clean_ai_csv(csv_text)
+        df = pd.read_csv(StringIO(cleaned_csv))
+        
         for col in df.columns[1:]:
             df[col] = pd.to_numeric(df[col], errors='coerce')
+        
         df.dropna(subset=df.columns[1:], how='all', inplace=True)
+        
         if df.empty:
-            raise HTTPException(status_code=400, detail="Failed to extract chart data from provided source")
+            raise HTTPException(status_code=400, detail="Failed to extract chart data from image")
+        
         # Create chart based on type
-        plt.clf()
         if request.chart_type == "Grouped Bar":
             melted = df.melt(id_vars=[df.columns[0]], var_name="Group", value_name="Count")
             plt.figure(figsize=(10, 6))
@@ -1297,18 +1205,22 @@ async def create_chart(request: ChartRequest, req: Request):
             plt.pie(data, labels=df[label_col], autopct="%1.1f%%", startangle=140)
             plt.title("Pie Chart (Total Responses)")
             plt.tight_layout()
+        
         # Save chart to bytes
         buf = io.BytesIO()
         plt.savefig(buf, format=request.format.lower(), bbox_inches="tight")
         buf.seek(0)
         chart_bytes = buf.getvalue()
+        
         # Convert to base64 for response
         chart_base64 = base64.b64encode(chart_bytes).decode()
+        
         return {
             "chart_data": chart_base64,
             "mime_type": f"image/{request.format.lower()}",
             "filename": f"{request.filename}.{request.format.lower()}"
         }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1362,20 +1274,9 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
         if not page:
             raise HTTPException(status_code=404, detail="Page not found")
         page_id = page["id"]
-        
-        # Handle different save modes
+        # Append new content to existing content
         existing_content = page["body"]["storage"]["value"]
-        mode = request.mode or "append"
-        
-        if mode == "append":
-            # Append new content to existing content
-            updated_body = existing_content + "<hr/>" + request.content
-        elif mode == "overwrite":
-            # Replace entire content
-            updated_body = request.content
-        else:
-            raise HTTPException(status_code=400, detail="Invalid mode. Use 'append' or 'overwrite'")
-        
+        updated_body = existing_content + "<hr/>" + request.content
         # Update page
         confluence.update_page(
             page_id=page_id,
@@ -1384,40 +1285,6 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
             representation="storage"
         )
         return {"message": "Page updated successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/preview-save-to-confluence")
-async def preview_save_to_confluence(request: PreviewSaveToConfluenceRequest, req: Request):
-    """
-    Preview the content that would be saved to a Confluence page.
-    """
-    try:
-        confluence = init_confluence()
-        space_key = auto_detect_space(confluence, request.space_key)
-        # Get page by title, expand body.storage
-        page = confluence.get_page_by_title(space=space_key, title=request.page_title, expand='body.storage')
-        if not page:
-            raise HTTPException(status_code=404, detail="Page not found")
-        
-        # Handle different save modes for preview
-        existing_content = page["body"]["storage"]["value"]
-        
-        if request.mode == "append":
-            # Preview append mode
-            preview_content = existing_content + "<hr/>" + request.content
-            diff = f"<div style='color: green;'>+ {request.content}</div>"
-        elif request.mode == "overwrite":
-            # Preview overwrite mode
-            preview_content = request.content
-            diff = f"<div style='color: red;'>- {existing_content}</div><div style='color: green;'>+ {request.content}</div>"
-        else:
-            raise HTTPException(status_code=400, detail="Invalid mode. Use 'append' or 'overwrite'")
-        
-        return {
-            "preview_content": preview_content,
-            "diff": diff
-        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1469,111 +1336,16 @@ async def analyze_goal(request: AnalyzeGoalRequest, req: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/table-summary")
-async def table_summary(request: TableSummaryRequest, req: Request):
-    """Generate AI summary for a table (HTML)"""
-    try:
-        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
-        genai.configure(api_key=api_key)
-        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
-        import pandas as pd
-        from io import StringIO
-        # Parse HTML table to DataFrame
-        dfs = pd.read_html(request.table_html)
-        if not dfs:
-            raise HTTPException(status_code=400, detail="No table found in HTML")
-        df = dfs[0]
-        csv_text = df.to_csv(index=False)
-        prompt = (
-            "You are analyzing a table extracted from a Confluence page. "
-            "Summarize the following table in detail. "
-            "Focus on key trends, outliers, and important data points. "
-            "Do not mention file names or metadata.\n\n"
-            f"CSV Table:\n{csv_text}"
-        )
-        response = ai_model.generate_content(prompt)
-        summary = response.text.strip()
-        return {"summary": summary}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/excel-summary")
-async def excel_summary(request: ExcelSummaryRequest, req: Request):
-    """Generate AI summary for an Excel file"""
-    try:
-        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
-        genai.configure(api_key=api_key)
-        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
-        import pandas as pd
-        import tempfile
-        import requests
-        # Download and read Excel file
-        auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
-        response = requests.get(request.excel_url, auth=auth)
-        if response.status_code != 200:
-            raise HTTPException(status_code=404, detail="Failed to fetch Excel file")
-        excel_bytes = response.content
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_xls:
-            tmp_xls.write(excel_bytes)
-            tmp_xls.flush()
-            df = pd.read_excel(tmp_xls.name)
-        csv_text = df.to_csv(index=False)
-        prompt = (
-            "You are analyzing an Excel sheet extracted from a Confluence page. "
-            "Summarize the following table in detail. "
-            "Focus on key trends, outliers, and important data points. "
-            "Do not mention file names or metadata.\n\n"
-            f"CSV Table:\n{csv_text}"
-        )
-        response = ai_model.generate_content(prompt)
-        summary = response.text.strip()
-        return {"summary": summary}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-def send_to_google_chat(summary: str) -> bool:
-    """
-    Sends the summary to Google Chat using the webhook URL from env var.
-    Returns True if successful, False otherwise.
-    """
-    webhook_url = os.getenv("GOOGLE_CHAT_WEBHOOK_URL")
-    if not webhook_url:
-        raise ValueError("GOOGLE_CHAT_WEBHOOK_URL not set in environment variables.")
-    payload = {"text": f"AI Summary:\n{summary}"}
-    headers = {"Content-Type": "application/json"}
-    try:
-        resp = requests.post(webhook_url, json=payload, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            return True
-        else:
-            print(f"Google Chat webhook error: {resp.status_code} {resp.text}")
-            return False
-    except Exception as e:
-        print(f"Exception sending to Google Chat: {e}")
-        return False
-
-@app.post("/send-to-google-chat")
-async def send_to_google_chat_endpoint(payload: dict = Body(...)):
-    """
-    Endpoint to send a summary to Google Chat.
-    Expects JSON: { "summary": "..." }
-    """
-    summary = payload.get("summary")
-    if not summary:
-        raise HTTPException(status_code=400, detail="Missing 'summary' in request body.")
-    try:
-        success = send_to_google_chat(summary)
-        if success:
-            return {"status": "success", "message": "Summary sent to Google Chat."}
-        else:
-            return {"status": "failure", "message": "Failed to send summary to Google Chat."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error sending to Google Chat: {str(e)}")
-
 @app.get("/test")
 async def test_endpoint():
     """Test endpoint to verify backend is working"""
     return {"message": "Backend is working", "status": "ok"}
+
+@app.get("/api/history")
+async def get_feature_history(feature: str = Query(..., description="Feature name for which to fetch search history")):
+    with feature_history_lock:
+        history = feature_history_store.get(feature, [])
+    return {"feature": feature, "history": history}
 
 def get_actual_api_key_from_identifier(identifier: str) -> str:
     if identifier and identifier.startswith('GENAI_API_KEY_'):

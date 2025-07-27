@@ -45,6 +45,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
   const [previewDiff, setPreviewDiff] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isGoogleChatLoading, setIsGoogleChatLoading] = useState(false);
   const exportFormats = [
     { value: 'markdown', label: 'Markdown' },
     { value: 'pdf', label: 'PDF' },
@@ -634,6 +635,34 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                       >
                         <Save className="w-4 h-4" />
                         <span>Save to Confluence</span>
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!response) return;
+                          setIsGoogleChatLoading(true);
+                          try {
+                            await apiService.sendToGoogleChat(response);
+                          } catch (err: any) {
+                            // Optionally handle error
+                          } finally {
+                            setIsGoogleChatLoading(false);
+                          }
+                        }}
+                        className="flex items-center justify-center space-x-2 px-4 py-2 bg-[#25A667]/90 backdrop-blur-sm text-white rounded-lg hover:bg-[#0B8043] transition-colors border border-white/10"
+                        style={{ minHeight: 44, minWidth: 180 }}
+                        disabled={!response || isGoogleChatLoading}
+                      >
+                        {isGoogleChatLoading ? (
+                          <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                        ) : (
+                          <>
+                            {/* Standard chat bubble icon */}
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M4 20V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7l-3 3z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="#25A667"/>
+                            </svg>
+                            <span>Share to Google Chat</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
