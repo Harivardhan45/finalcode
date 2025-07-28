@@ -32,8 +32,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
-        "https://backend-5v02.onrender.com",  # Add your Render URL
-        "https://frontend-rrpd.onrender.com",  # Add frontend domain
+        "https://finalcode-backend.onrender.com",  # Add your Render URL
+        "https://finalcode-frontend.onrender.com",  # Add frontend domain
         "*"  # For development, you can allow all origins
     ],
     allow_credentials=True,
@@ -1224,7 +1224,7 @@ async def push_to_jira_confluence_slack(request: PushToJiraConfluenceSlackReques
         CONFLUENCE_USER_EMAIL = os.getenv("CONFLUENCE_USER_EMAIL")
         CONFLUENCE_API_KEY = os.getenv("CONFLUENCE_API_KEY")
         CONFLUENCE_BASE_URL = os.getenv("CONFLUENCE_BASE_URL")
-        CONFLUENCE_PAGE_ID = "55541855"  
+        CONFLUENCE_PAGE_ID = "15073281"  
         CONFLUENCE_SPACE_KEY = "MFS"  
         
         JIRA_BASE_URL = os.getenv("JIRA_BASE_URL")
