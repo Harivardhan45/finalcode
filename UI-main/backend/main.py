@@ -79,7 +79,7 @@ class CodeImpactRequest(BaseModel):
     old_code: str
     new_code: str
     question: Optional[str] = None
-    enable_stack_overflow_check: Optional[bool] = True
+    enable_stack_overflow_check: Optional[bool] = False
 
 class TestRequest(BaseModel):
     space_key: str
@@ -229,9 +229,9 @@ def extract_timestamps_from_summary(summary):
             if match:
                 timestamp_text = f"[{match.group(1)}] {match.group(2)}"
                 timestamps.append(timestamp_text)
-            elif line.strip().startswith("*") or line.strip().startswith("-"):
+            elif line.strip().startswith('*') or line.strip().startswith('-'):
                 # fallback for bullet points
-                timestamps.append(line.strip().lstrip("* -").strip())
+                timestamps.append(line.strip().lstrip('* -').strip())
             elif line.strip():
                 # fallback for any non-empty line
                 timestamps.append(line.strip())
@@ -1076,7 +1076,7 @@ Answer:"""
 
 @app.post("/code-impact-analyzer")
 async def code_impact_analyzer(request: CodeImpactRequest, req: Request):
-    """Code Impact Analyzer functionality for direct code comparison"""
+    """Code Impact Analyzer functionality - takes code strings directly"""
     try:
         api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
         genai.configure(api_key=api_key)
@@ -1086,7 +1086,7 @@ async def code_impact_analyzer(request: CodeImpactRequest, req: Request):
         new_content = request.new_code
         
         if not old_content or not new_content:
-            raise HTTPException(status_code=400, detail="Both old and new code content are required")
+            raise HTTPException(status_code=400, detail="No content provided in one or both code versions")
         
         # Generate diff
         old_lines = old_content.splitlines()
@@ -1109,8 +1109,8 @@ async def code_impact_analyzer(request: CodeImpactRequest, req: Request):
         safe_diff = clean_and_truncate_prompt(full_diff_text)
         
         # Impact analysis
-        impact_prompt = f"""Write 2 paragraphs summarizing the overall impact of the following changes between two versions of code.
-        
+        impact_prompt = f"""Write 2 paragraphs summarizing the overall impact of the following code changes between two versions.
+
         Cover only:
         - What was changed
         - Which parts of the code are affected
@@ -1129,9 +1129,9 @@ async def code_impact_analyzer(request: CodeImpactRequest, req: Request):
 
         Focus on:
         - Code quality
+        - Performance and efficiency
+        - Security considerations
         - Best practices
-        - Performance considerations
-        - Security implications
         
         Limit to 20 sentences.
         
@@ -1178,9 +1178,9 @@ async def code_impact_analyzer(request: CodeImpactRequest, req: Request):
         risk_factors = risk_factors_response.text.strip().split("\n")
         risk_factors = [re.sub(r"^[\*\-•\s]+", "", line).strip() for line in risk_factors if line.strip()]
 
-        # Stack Overflow Risk Check
+        # Stack Overflow Risk Check (disabled by default for code impact)
         stack_overflow_risks = []
-        if getattr(request, 'enable_stack_overflow_check', True):
+        if getattr(request, 'enable_stack_overflow_check', False):
             # Check both old and new content for risks
             combined_content = f"{old_content}\n{new_content}"
             stack_overflow_risks = check_stack_overflow_risks(combined_content)
@@ -1194,7 +1194,7 @@ async def code_impact_analyzer(request: CodeImpactRequest, req: Request):
                 f"Risks: {risk_text[:1000]}\n"
                 f"Changes: +{lines_added}, -{lines_removed}, ~{percent_change}%"
             )
-            qa_prompt = f"""You are an expert AI assistant. Based on the report below, answer the user's question clearly.
+            qa_prompt = f"""You are an expert AI assistant. Based on the code analysis report below, answer the user's question clearly.
 
 {context}
 
@@ -1204,6 +1204,7 @@ Answer:"""
             qa_response = ai_model.generate_content(qa_prompt)
             qa_answer = qa_response.text.strip()
             
+        
         return {
             "lines_added": lines_added,
             "lines_removed": lines_removed,
