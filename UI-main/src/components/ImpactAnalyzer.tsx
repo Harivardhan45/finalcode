@@ -40,7 +40,7 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
   const [question, setQuestion] = useState('');
   const [qaResults, setQaResults] = useState<Array<{question: string, answer: string}>>([]);
   const [stackOverflowRisks, setStackOverflowRisks] = useState<StackOverflowRisk[]>([]);
-  const [enableStackOverflowCheck, setEnableStackOverflowCheck] = useState(true);
+  const [isStackOverflowChecking, setIsStackOverflowChecking] = useState(false);
   // --- History feature for Q&A ---
   const [qaHistory, setQaHistory] = useState<Array<{question: string, answer: string}>>([]);
   const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
@@ -132,7 +132,7 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
         space_key: selectedSpace,
         old_page_title: oldPage,
         new_page_title: newPage,
-        enable_stack_overflow_check: enableStackOverflowCheck
+        enable_stack_overflow_check: false // Don't run Stack Overflow check with main analysis
       });
 
       setDiffResults(result.diff || '');
@@ -150,9 +150,6 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
         factors: result.risk_factors || []
       });
       
-      // Set Stack Overflow risks if available
-      setStackOverflowRisks(result.stack_overflow_risks || []);
-      
     } catch (err) {
       setError('Failed to analyze impact. Please try again.');
       console.error('Error analyzing impact:', err);
@@ -160,6 +157,36 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
       setIsAnalyzing(false);
     }
   };
+
+  const runStackOverflowRiskCheck = async () => {
+    if (!selectedSpace || !oldPage || !newPage) {
+      setError('Please select both old and new versions first.');
+      return;
+    }
+    
+    setIsStackOverflowChecking(true);
+    setError('');
+    
+    try {
+      const result = await apiService.impactAnalyzer({
+        space_key: selectedSpace,
+        old_page_title: oldPage,
+        new_page_title: newPage,
+        enable_stack_overflow_check: true
+      });
+      
+      // Set Stack Overflow risks
+      setStackOverflowRisks(result.stack_overflow_risks || []);
+      
+    } catch (err) {
+      console.error('Error running Stack Overflow risk check:', err);
+      setError('Failed to run Stack Overflow risk check. Please try again.');
+    } finally {
+      setIsStackOverflowChecking(false);
+    }
+  };
+
+
 
   const addQuestion = async () => {
     if (!question.trim() || !selectedSpace || !oldPage || !newPage) {
@@ -217,7 +244,7 @@ This analysis is based on the diff comparison between the selected versions.`;
 - **Old Version**: ${oldPage}
 - **New Version**: ${newPage}
 - **Analysis Date**: ${new Date().toLocaleString()}
-- **Stack Overflow Risk Check**: ${enableStackOverflowCheck ? 'Enabled' : 'Disabled'}
+- **Stack Overflow Risk Check**: ${stackOverflowRisks.length > 0 ? 'Completed' : 'Not Run'}
 
 ## Metrics
 - Lines Added: ${metrics?.linesAdded}
@@ -521,24 +548,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                   </div>
                 </div>
 
-                {/* Stack Overflow Risk Checker Toggle */}
-                <div className="flex items-center space-x-3 p-3 bg-blue-50/80 backdrop-blur-sm rounded-lg border border-blue-200/50">
-                  <Shield className="w-5 h-5 text-blue-600" />
-                  <div className="flex-1">
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={enableStackOverflowCheck}
-                        onChange={(e) => setEnableStackOverflowCheck(e.target.checked)}
-                        className="w-4 h-4 text-confluence-blue border-gray-300 rounded focus:ring-confluence-blue"
-                      />
-                      <span className="text-sm font-medium text-gray-700">Enable Stack Overflow Risk Checker</span>
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Scans for deprecated patterns and risky code practices
-                    </p>
-                  </div>
-                </div>
+
 
                 {/* Analyze Button */}
                 <button
@@ -558,6 +568,27 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                     </>
                   )}
                 </button>
+
+                {/* Stack Overflow Risk Checker Button */}
+                <button
+                  onClick={runStackOverflowRiskCheck}
+                  disabled={!selectedSpace || !oldPage || !newPage || isStackOverflowChecking}
+                  className="w-full bg-blue-600/90 backdrop-blur-sm text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
+                >
+                  {isStackOverflowChecking ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Checking Risks...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-5 h-5" />
+                      <span>Stack Overflow Risk Check</span>
+                    </>
+                  )}
+                </button>
+
+
 
                 {/* Metrics Display */}
                 {metrics && (

@@ -320,6 +320,7 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
     try:
         # Common risky patterns and deprecated features to check for
         risk_patterns = [
+            # JavaScript/Web patterns
             {
                 "pattern": "eval\\(",
                 "risk_level": "high",
@@ -400,6 +401,43 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
                     "Use for...of loops for iterables"
                 ],
                 "search_terms": ["var in for loop closure", "javascript for loop var let difference"]
+            },
+            # Python-specific patterns
+            {
+                "pattern": "exec\\(",
+                "risk_level": "high",
+                "description": "Use of exec() function is dangerous as it executes arbitrary code",
+                "deprecation_warning": "exec() is considered dangerous and should be avoided",
+                "alternative_suggestions": [
+                    "Use ast.literal_eval() for safe evaluation",
+                    "Use json.loads() for JSON data",
+                    "Implement proper input validation and sanitization"
+                ],
+                "search_terms": ["python exec function security risks", "exec() dangerous code execution"]
+            },
+            {
+                "pattern": "pickle\\.load\\(",
+                "risk_level": "high",
+                "description": "pickle.load() can execute arbitrary code and is unsafe for untrusted data",
+                "deprecation_warning": "pickle.load() is dangerous for untrusted data",
+                "alternative_suggestions": [
+                    "Use json.load() for safe data deserialization",
+                    "Use ast.literal_eval() for simple data structures",
+                    "Implement custom serialization for complex objects"
+                ],
+                "search_terms": ["python pickle security risks", "pickle.load dangerous"]
+            },
+            {
+                "pattern": "subprocess\\.run.*shell=True",
+                "risk_level": "high",
+                "description": "subprocess.run with shell=True can execute arbitrary shell commands",
+                "deprecation_warning": "shell=True is dangerous with user input",
+                "alternative_suggestions": [
+                    "Use subprocess.run with shell=False and list arguments",
+                    "Use specific command execution libraries",
+                    "Validate and sanitize all command inputs"
+                ],
+                "search_terms": ["python subprocess shell=True security", "subprocess shell injection"]
             }
         ]
         

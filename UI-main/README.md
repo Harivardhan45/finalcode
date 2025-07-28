@@ -35,6 +35,7 @@ The Impact Analyzer now includes an integrated Stack Overflow Risk Checker that:
 - **Smart Search**: Uses optimized search terms for each risk pattern
 - **Fallback Support**: Works without API key (limited rate)
 - **Rate Limiting**: Respects Stack Overflow API limits
+- **Separate Button**: Dedicated "Stack Overflow Risk Check" button for independent execution
 
 ## Prerequisites
 
