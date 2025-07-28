@@ -56,22 +56,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
   const [instructionHistory, setInstructionHistory] = useState<Array<{instruction: string, output: string}>>([]);
   const [currentInstructionHistoryIndex, setCurrentInstructionHistoryIndex] = useState<number | null>(null);
 
-  // --- Impact Analysis state ---
-  const [isAnalyzingImpact, setIsAnalyzingImpact] = useState(false);
-  const [impactResults, setImpactResults] = useState<{
-    lines_added: number;
-    lines_removed: number;
-    files_changed: number;
-    percentage_change: number;
-    impact_analysis: string;
-    recommendations: string;
-    risk_analysis: string;
-    risk_level: string;
-    risk_score: number;
-    risk_factors: string[];
-    diff: string;
-  } | null>(null);
-
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
     { id: 'video' as const, label: 'Video Summarizer', icon: Video },
@@ -379,53 +363,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
       console.error('Error processing code:', err);
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  // Add analyzeCodeImpact function
-  const analyzeCodeImpact = async () => {
-    if (!selectedSpace || !detectedCode) {
-      setError('Please select a space and load code first.');
-      return;
-    }
-
-    // Get the current modified code (either from modification, conversion, or AI action)
-    const currentCode = modificationOutput || conversionOutput || aiActionOutput || detectedCode;
-    
-    if (currentCode === detectedCode) {
-      setError('Please process the code first to create a modified version for impact analysis.');
-      return;
-    }
-
-    setIsAnalyzingImpact(true);
-    setError('');
-
-    try {
-      const result = await apiService.codeImpactAnalyzer({
-        space_key: selectedSpace,
-        old_code: detectedCode,
-        new_code: currentCode,
-        enable_stack_overflow_check: false
-      });
-
-      setImpactResults({
-        lines_added: result.lines_added || 0,
-        lines_removed: result.lines_removed || 0,
-        files_changed: result.files_changed || 1,
-        percentage_change: result.percentage_change || 0,
-        impact_analysis: result.impact_analysis || '',
-        recommendations: result.recommendations || '',
-        risk_analysis: result.risk_analysis || '',
-        risk_level: result.risk_level || 'low',
-        risk_score: result.risk_score || 0,
-        risk_factors: result.risk_factors || [],
-        diff: result.diff || ''
-      });
-    } catch (err) {
-      setError('Failed to analyze impact. Please try again.');
-      console.error('Error analyzing impact:', err);
-    } finally {
-      setIsAnalyzingImpact(false);
     }
   };
 
@@ -841,25 +778,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                     </>
                   )}
                 </button>
-
-                {/* Analyze Impact Button */}
-                <button
-                  onClick={analyzeCodeImpact}
-                  disabled={!selectedSpace || !detectedCode || isAnalyzingImpact || (!modificationOutput && !conversionOutput && !aiActionOutput)}
-                  className="w-full bg-green-600/90 backdrop-blur-sm text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
-                >
-                  {isAnalyzingImpact ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Analyzing Impact...</span>
-                    </>
-                  ) : (
-                    <>
-                      <TrendingUp className="w-5 h-5" />
-                      <span>Analyze Impact</span>
-                    </>
-                  )}
-                </button>
               </div>
             </div>
 
@@ -944,98 +862,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                   </div>
                 )}
               </div>
-
-              {/* Impact Analysis Results */}
-              {impactResults && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-800">Impact Analysis</h3>
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        impactResults.risk_level === 'high' ? 'bg-red-100 text-red-800' :
-                        impactResults.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {impactResults.risk_level.toUpperCase()} RISK
-                      </span>
-                      <span className="text-sm text-gray-600">
-                        Score: {impactResults.risk_score}/10
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Metrics */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                      <div className="text-sm text-gray-600">Lines Added</div>
-                      <div className="text-lg font-semibold text-green-600">+{impactResults.lines_added}</div>
-                    </div>
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                      <div className="text-sm text-gray-600">Lines Removed</div>
-                      <div className="text-lg font-semibold text-red-600">-{impactResults.lines_removed}</div>
-                    </div>
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                      <div className="text-sm text-gray-600">Files Changed</div>
-                      <div className="text-lg font-semibold text-blue-600">{impactResults.files_changed}</div>
-                    </div>
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                      <div className="text-sm text-gray-600">Change %</div>
-                      <div className="text-lg font-semibold text-purple-600">{impactResults.percentage_change}%</div>
-                    </div>
-                  </div>
-
-                  {/* Impact Analysis */}
-                  <div className="mb-4">
-                    <h4 className="font-medium text-gray-800 mb-2">Impact Summary</h4>
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{impactResults.impact_analysis}</p>
-                    </div>
-                  </div>
-
-                  {/* Recommendations */}
-                  <div className="mb-4">
-                    <h4 className="font-medium text-gray-800 mb-2">Recommendations</h4>
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{impactResults.recommendations}</p>
-                    </div>
-                  </div>
-
-                  {/* Risk Analysis */}
-                  <div className="mb-4">
-                    <h4 className="font-medium text-gray-800 mb-2">Risk Analysis</h4>
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{impactResults.risk_analysis}</p>
-                    </div>
-                  </div>
-
-                  {/* Risk Factors */}
-                  {impactResults.risk_factors.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="font-medium text-gray-800 mb-2">Risk Factors</h4>
-                      <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-                        <ul className="space-y-1">
-                          {impactResults.risk_factors.map((factor, index) => (
-                            <li key={index} className="text-sm text-gray-700 flex items-start">
-                              <span className="text-red-500 mr-2">•</span>
-                              {factor}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Diff */}
-                  <div>
-                    <h4 className="font-medium text-gray-800 mb-2">Code Diff</h4>
-                    <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 overflow-auto max-h-48 border border-white/10">
-                      <pre className="text-xs text-gray-300">
-                        <code>{impactResults.diff}</code>
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Export Options */}
               {(processedCode || modificationOutput || conversionOutput || aiActionOutput) && (
