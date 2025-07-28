@@ -41,6 +41,10 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
   const [modificationOutput, setModificationOutput] = useState('');
   const [conversionOutput, setConversionOutput] = useState('');
 
+  // Add new state for Impact Analysis
+  const [impactAnalysis, setImpactAnalysis] = useState<any>(null);
+  const [isAnalyzingImpact, setIsAnalyzingImpact] = useState(false);
+
   // Add new state for page search and dropdown
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
   const [pageSearch, setPageSearch] = useState('');
@@ -464,6 +468,39 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
     }
   };
 
+  // Add analyze impact function
+  const analyzeImpact = async () => {
+    if (!detectedCode) {
+      setError('No original code available for analysis.');
+      return;
+    }
+
+    const newCode = aiActionOutput || modificationOutput || conversionOutput || processedCode;
+    if (!newCode) {
+      setError('No AI result available for analysis.');
+      return;
+    }
+
+    setIsAnalyzingImpact(true);
+    setError('');
+
+    try {
+      // Use the new direct code impact analyzer
+      const result = await apiService.directCodeImpactAnalyzer({
+        old_code: detectedCode,
+        new_code: newCode,
+        question: 'Analyze the impact of changes between the original code and the AI-modified code.'
+      });
+
+      setImpactAnalysis(result);
+    } catch (err) {
+      setError('Failed to analyze impact. Please try again.');
+      console.error('Error analyzing impact:', err);
+    } finally {
+      setIsAnalyzingImpact(false);
+    }
+  };
+
   function cleanPreviewContent(html: string, numBlocks = 2): string {
     try {
       const parser = new DOMParser();
@@ -820,6 +857,27 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                     </>
                   )}
                 </button>
+
+                {/* Analyze Impact Button */}
+                {(aiActionOutput || modificationOutput || conversionOutput || processedCode) && (
+                  <button
+                    onClick={analyzeImpact}
+                    disabled={!detectedCode || isAnalyzingImpact}
+                    className="w-full bg-green-600/90 backdrop-blur-sm text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10 mt-3"
+                  >
+                    {isAnalyzingImpact ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Analyzing Impact...</span>
+                      </>
+                    ) : (
+                      <>
+                        <TrendingUp className="w-5 h-5" />
+                        <span>Analyze Impact</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -904,6 +962,92 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                   </div>
                 )}
               </div>
+
+              {/* Impact Analysis Results */}
+              {impactAnalysis && (
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                  <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                    <TrendingUp className="w-5 h-5 mr-2 text-green-600" />
+                    Impact Analysis
+                  </h3>
+                  
+                  {/* Metrics Summary */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <div className="text-sm text-gray-600">Lines Added</div>
+                      <div className="text-lg font-semibold text-green-600">{impactAnalysis.lines_added}</div>
+                    </div>
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <div className="text-sm text-gray-600">Lines Removed</div>
+                      <div className="text-lg font-semibold text-red-600">{impactAnalysis.lines_removed}</div>
+                    </div>
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <div className="text-sm text-gray-600">Change %</div>
+                      <div className="text-lg font-semibold text-blue-600">{impactAnalysis.percentage_change}%</div>
+                    </div>
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <div className="text-sm text-gray-600">Risk Level</div>
+                      <div className={`text-lg font-semibold ${
+                        impactAnalysis.risk_level === 'low' ? 'text-green-600' : 
+                        impactAnalysis.risk_level === 'medium' ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                        {impactAnalysis.risk_level.toUpperCase()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Impact Analysis */}
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-800 mb-2">Impact Summary</h4>
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{impactAnalysis.impact_analysis}</p>
+                    </div>
+                  </div>
+
+                  {/* Recommendations */}
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-800 mb-2">Recommendations</h4>
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{impactAnalysis.recommendations}</p>
+                    </div>
+                  </div>
+
+                  {/* Risk Analysis */}
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-800 mb-2">Risk Analysis</h4>
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{impactAnalysis.risk_analysis}</p>
+                    </div>
+                  </div>
+
+                  {/* Risk Factors */}
+                  {impactAnalysis.risk_factors && impactAnalysis.risk_factors.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="font-medium text-gray-800 mb-2">Risk Factors</h4>
+                      <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                        <ul className="text-sm text-gray-700 space-y-1">
+                          {impactAnalysis.risk_factors.map((factor: string, index: number) => (
+                            <li key={index} className="flex items-start">
+                              <span className="text-red-500 mr-2">•</span>
+                              <span>{factor}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Code Diff */}
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-800 mb-2">Code Changes</h4>
+                    <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 border border-white/10 overflow-auto max-h-48">
+                      <pre className="text-xs text-gray-300">
+                        <code>{impactAnalysis.diff}</code>
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Export Options */}
               {(processedCode || modificationOutput || conversionOutput || aiActionOutput) && (

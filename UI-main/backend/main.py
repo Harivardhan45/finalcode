@@ -74,6 +74,12 @@ class ImpactRequest(BaseModel):
     question: Optional[str] = None
     enable_stack_overflow_check: Optional[bool] = True
 
+class DirectCodeImpactRequest(BaseModel):
+    old_code: str
+    new_code: str
+    question: Optional[str] = None
+    enable_stack_overflow_check: Optional[bool] = True
+
 class TestRequest(BaseModel):
     space_key: str
     code_page_title: str
@@ -1047,6 +1053,141 @@ Answer:"""
             qa_response = ai_model.generate_content(qa_prompt)
             qa_answer = qa_response.text.strip()
             
+        
+        return {
+            "lines_added": lines_added,
+            "lines_removed": lines_removed,
+            "files_changed": 1,
+            "percentage_change": percent_change,
+            "impact_analysis": impact_text,
+            "recommendations": rec_text,
+            "risk_analysis": risk_text,
+            "risk_level": "low" if percent_change < 10 else "medium" if percent_change < 30 else "high",
+            "risk_score": min(10, max(1, round(percent_change / 10))),
+            "risk_factors": risk_factors,
+            "answer": qa_answer,
+            "diff": full_diff_text,
+            "stack_overflow_risks": stack_overflow_risks
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/direct-code-impact-analyzer")
+async def direct_code_impact_analyzer(request: DirectCodeImpactRequest, req: Request):
+    """Direct Code Impact Analyzer functionality - analyzes code without requiring Confluence pages"""
+    try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
+        
+        old_content = request.old_code
+        new_content = request.new_code
+        
+        if not old_content or not new_content:
+            raise HTTPException(status_code=400, detail="Both old and new code must be provided")
+        
+        # Generate diff
+        old_lines = old_content.splitlines()
+        new_lines = new_content.splitlines()
+        diff = difflib.unified_diff(old_lines, new_lines, fromfile="original_code", tofile="modified_code", lineterm='')
+        full_diff_text = '\n'.join(diff)
+        
+        # Calculate metrics
+        lines_added = sum(1 for l in full_diff_text.splitlines() if l.startswith('+') and not l.startswith('+++'))
+        lines_removed = sum(1 for l in full_diff_text.splitlines() if l.startswith('-') and not l.startswith('---'))
+        total_lines = len(old_lines) or 1
+        percent_change = round(((lines_added + lines_removed) / total_lines) * 100, 2)
+        
+        # Generate AI analysis
+        def clean_and_truncate_prompt(text, max_chars=10000):
+            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r'[^\x00-\x7F]+', '', text)
+            return text[:max_chars]
+        
+        safe_diff = clean_and_truncate_prompt(full_diff_text)
+        
+        # Impact analysis
+        impact_prompt = f"""Write 2 paragraphs summarizing the overall impact of the following changes between two versions of code.
+        
+        Cover only:
+        - What was changed
+        - Which parts of the code are affected
+        - Why this matters
+        
+        Keep it within 20 sentences.
+        
+        Changes:
+        {safe_diff}"""
+        
+        impact_response = ai_model.generate_content(impact_prompt)
+        impact_text = impact_response.text.strip()
+        
+        # Recommendations
+        rec_prompt = f"""As a senior developer, write 2 paragraphs suggesting improvements for the following code changes.
+
+        Focus on:
+        - Code quality
+        - Performance and efficiency
+        - Best practices
+        - Any possible enhancements
+        
+        Limit to 20 sentences.
+        
+        Changes:
+        {safe_diff}"""
+        
+        rec_response = ai_model.generate_content(rec_prompt)
+        rec_text = rec_response.text.strip()
+        
+        # Risk analysis
+        risk_prompt = f"Assess the risk of each change in this code diff with severity tags (Low, Medium, High):\n\n{safe_diff}"
+        risk_response = ai_model.generate_content(risk_prompt)
+        raw_risk = risk_response.text.strip()
+        risk_text = re.sub(
+            r'\b(Low|Medium|High)\b',
+            lambda m: {
+                'Low': '🟢 Low',
+                'Medium': '🟡 Medium',
+                'High': '🔴 High'
+            }[m.group(0)],
+            raw_risk
+        )
+        
+        # Generate structured risk factors
+        risk_factors_prompt = f"""
+        Analyze the following code changes and extract specific risk factors. Return only a list of risk factors, one per line, starting with "- ":
+        
+        {safe_diff}
+        
+        Focus on:
+        - Breaking changes
+        - Performance impacts
+        - Security vulnerabilities
+        - Maintainability issues
+        - Compatibility problems
+        """
+        
+        risk_factors_response = ai_model.generate_content(risk_factors_prompt)
+        risk_factors = [line.strip()[2:] for line in risk_factors_response.text.strip().split('\n') if line.strip().startswith('- ')]
+        
+        # QA response if question provided
+        qa_answer = ""
+        if request.question:
+            qa_prompt = f"""Answer this specific question about the code changes: "{request.question}"
+
+            Code changes:
+            {safe_diff}
+            
+            Provide a concise, direct answer."""
+            qa_response = ai_model.generate_content(qa_prompt)
+            qa_answer = qa_response.text.strip()
+        
+        # Stack Overflow risk check if enabled
+        stack_overflow_risks = []
+        if getattr(request, 'enable_stack_overflow_check', True):
+            combined_content = f"{old_content}\n{new_content}"
+            stack_overflow_risks = check_stack_overflow_risks(combined_content)
         
         return {
             "lines_added": lines_added,
