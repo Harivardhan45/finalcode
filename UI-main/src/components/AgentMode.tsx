@@ -296,6 +296,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       setError('Please enter a goal, select a space, and at least one page.');
       return;
     }
+    
     setIsPlanning(true);
     setError('');
     setPlanSteps([
@@ -308,252 +309,200 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
     setProgressPercent(0);
     setCurrentHistoryId(null);
     setShowHistory(false);
+    
     let reasoningLines: string[] = [];
     let impactAnalyzerResult: React.ReactNode | null = null;
     let testStrategyResult: React.ReactNode | null = null;
     let toolsTriggered: string[] = [];
     let whyUsed: string[] = [];
     let howDerived: string[] = [];
+    
     try {
       setPlanSteps((steps) => steps.map((s) => s.id === 1 ? { ...s, status: 'running' } : s));
       setCurrentStep(0);
+      
       // Split instructions
       const instructions = splitInstructions(goal);
-      // Map each instruction to the correct page/tool based on content type and intent
       const pageResults: Record<string, Array<{ instruction: string, tool: string, outputs: string[], formattedOutput: string }>> = {};
       
-      // Analyze instructions to determine required tools
-      const requiredTools = new Set<string>();
-      const instructionTools: { instruction: string, tools: string[] }[] = [];
-      
+      // Process each instruction with its appropriate tool
       for (const instruction of instructions) {
         const lowerInstruction = instruction.toLowerCase();
-        const tools: string[] = [];
+        let tool = 'ai_powered_search'; // default
         
-        // Detect video-related instructions
+        // Determine the appropriate tool for this instruction based on instruction content
         if (/video|summarize.*video|transcribe|video.*summarize/.test(lowerInstruction)) {
-          tools.push('video_summarizer');
+          tool = 'video_summarizer';
+        } else if (/image|chart|diagram|visual|image.*summarize|summarize.*image/.test(lowerInstruction)) {
+          tool = 'image_insights';
+        } else if (/convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code/.test(lowerInstruction)) {
+          tool = 'code_assistant';
+        } else if (/impact|change|difference|diff/.test(lowerInstruction)) {
+          tool = 'impact_analyzer';
+        } else if (/test|qa|test case|unit test/.test(lowerInstruction)) {
+          tool = 'test_support';
+        } else if (/summarize|summary/.test(lowerInstruction)) {
+          tool = 'ai_powered_search';
         }
         
-        // Detect image-related instructions
-        if (/image|chart|diagram|visual|image.*summarize|summarize.*image/.test(lowerInstruction)) {
-          tools.push('image_insights');
-        }
-        
-        // Detect code-related instructions
-        if (/convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code/.test(lowerInstruction)) {
-          tools.push('code_assistant');
-        }
-        
-        // Detect text-related instructions
-        if (/text|summarize.*text|text.*summarize/.test(lowerInstruction)) {
-          tools.push('ai_powered_search');
-        }
-        
-        // Detect special tools
-        if (/impact|change|difference|diff/.test(lowerInstruction)) {
-          tools.push('impact_analyzer');
-        }
-        if (/test|qa|test case|unit test/.test(lowerInstruction)) {
-          tools.push('test_support');
-        }
-        
-        // If no specific tool detected, default to AI Powered Search
-        if (tools.length === 0) {
-          tools.push('ai_powered_search');
-        }
-        
-        tools.forEach(tool => requiredTools.add(tool));
-        instructionTools.push({ instruction, tools });
-      }
-      
-      // Get content types for each page
-      const pageContentTypes = new Map<string, string>();
-      for (const page of selectedPages) {
-        const type = (pageTypes.find(p => p.title === page)?.content_type) || 'text';
-        pageContentTypes.set(page, type);
-      }
-      
-      // Match instructions to pages based on content type and required tools
-      const pageInstructions: { page: string, instruction: string, tool: string }[] = [];
-      
-      for (const page of selectedPages) {
-        const pageType = pageContentTypes.get(page) || 'text';
-        
-        // Find the best matching instruction for this page
-        let bestMatch = { instruction: instructions[0], tool: 'ai_powered_search' };
-        
-        for (const { instruction, tools } of instructionTools) {
-          const lowerInstruction = instruction.toLowerCase();
+        // Process this instruction with the selected tool for each page
+        for (const page of selectedPages) {
+          const pageType = pageTypes.find(p => p.title === page)?.content_type || 'text';
           
-          // Match based on content type
-          if (pageType === 'video' && tools.includes('video_summarizer')) {
-            bestMatch = { instruction, tool: 'video_summarizer' };
-            break;
-          } else if (pageType === 'image' && tools.includes('image_insights')) {
-            bestMatch = { instruction, tool: 'image_insights' };
-            break;
-          } else if (pageType === 'code' && tools.includes('code_assistant')) {
-            bestMatch = { instruction, tool: 'code_assistant' };
-            break;
-          } else if (pageType === 'text' && tools.includes('ai_powered_search')) {
-            bestMatch = { instruction, tool: 'ai_powered_search' };
-            break;
-          }
-        }
-        
-        // If no specific match found, use the first available tool
-        if (bestMatch.tool === 'ai_powered_search') {
-          for (const { instruction, tools } of instructionTools) {
-            if (tools.length > 0) {
-              bestMatch = { instruction, tool: tools[0] };
-              break;
-            }
-          }
-        }
-        
-        pageInstructions.push({ page, instruction: bestMatch.instruction, tool: bestMatch.tool });
-      }
-      
-      for (const { page, instruction, tool } of pageInstructions) {
-        const type = pageContentTypes.get(page) || 'text';
-        let outputs: string[] = [];
-        let formattedOutput = '';
-        
-        if (tool === 'code_assistant') {
-          // Handle AI actions for code pages
-          const relatedActions = splitRelatedActions(instruction);
-          let lastOutput = '';
-          let aiActionOutput = '';
-          let conversionOutput = '';
-          let modificationOutput = '';
-          // Get the original code first to use in prompts (like Tool Mode does)
-          const initialResult = await apiService.codeAssistant({
-            space_key: selectedSpace,
-            page_title: page,
-            instruction: ''
-          });
-          const detectedCode = initialResult.original_code || '';
-          const actionPromptMap: Record<string, string> = {
-            "Summarize Code": `Summarize the following code in clear and concise language:\n\n${detectedCode}`,
-            "Optimize Performance": `Optimize the following code for performance without changing its functionality, return only the updated code:\n\n${detectedCode}`,
-            "Generate Documentation": `Generate inline documentation and function-level comments for the following code, return only the updated code by commenting the each line of the code.:\n\n${detectedCode}`,
-            "Refactor Structure": `Refactor the following code to improve structure, readability, and modularity, return only the updated code:\n\n${detectedCode}`,
-            "Identify dead code": `Analyze the following code for any unsued code or dead code, return only the updated code by removing the dead code:\n\n${detectedCode}`,
-            "Add Logging Statements": `Add appropriate logging statements to the following code for better traceability and debugging. Return only the updated code:\n\n${detectedCode}`,
-          };
-          for (const action of relatedActions) {
-            let prompt = action;
-            if (/optimize|performance/i.test(action)) {
-              prompt = actionPromptMap["Optimize Performance"];
-            } else if (/documentation|docs|comment/i.test(action)) {
-              prompt = actionPromptMap["Generate Documentation"];
-            } else if (/refactor|structure/i.test(action)) {
-              prompt = actionPromptMap["Refactor Structure"];
-            } else if (/dead code|unused/i.test(action)) {
-              prompt = actionPromptMap["Identify dead code"];
-            } else if (/logging|log/i.test(action)) {
-              prompt = actionPromptMap["Add Logging Statements"];
-            } else if (/summarize|summary/i.test(action)) {
-              prompt = actionPromptMap["Summarize Code"];
-            }
-            const result = await apiService.codeAssistant({
+          // Skip if tool doesn't match page content type (except for AI Powered Search which can handle any type)
+          if (tool === 'video_summarizer' && pageType !== 'video') continue;
+          if (tool === 'image_insights' && pageType !== 'image') continue;
+          if (tool === 'code_assistant' && pageType !== 'code') continue;
+          
+          // For impact analyzer, we need exactly 2 pages
+          if (tool === 'impact_analyzer' && selectedPages.length !== 2) continue;
+          
+          // For test support, we need exactly 2 pages
+          if (tool === 'test_support' && selectedPages.length !== 2) continue;
+          
+          let outputs: string[] = [];
+          let formattedOutput = '';
+          
+          if (tool === 'code_assistant') {
+            // Handle AI actions for code pages
+            const relatedActions = splitRelatedActions(instruction);
+            let lastOutput = '';
+            let aiActionOutput = '';
+            let conversionOutput = '';
+            let modificationOutput = '';
+            
+            // Get the original code first to use in prompts (like Tool Mode does)
+            const initialResult = await apiService.codeAssistant({
               space_key: selectedSpace,
               page_title: page,
-              instruction: prompt
+              instruction: ''
             });
-            const output = result.modified_code || result.converted_code || result.original_code || 'AI action completed successfully.';
-            if (/optimize|refactor|dead code|docs|logging|summarize/i.test(action)) {
-              aiActionOutput = output;
-            } else if (/convert|language|to\s+\w+/i.test(action)) {
-              conversionOutput = output;
-            } else {
-              modificationOutput = output;
+            const detectedCode = initialResult.original_code || '';
+            
+            const actionPromptMap: Record<string, string> = {
+              "Summarize Code": `Summarize the following code in clear and concise language:\n\n${detectedCode}`,
+              "Optimize Performance": `Optimize the following code for performance without changing its functionality, return only the updated code:\n\n${detectedCode}`,
+              "Generate Documentation": `Generate inline documentation and function-level comments for the following code, return only the updated code by commenting the each line of the code.:\n\n${detectedCode}`,
+              "Refactor Structure": `Refactor the following code to improve structure, readability, and modularity, return only the updated code:\n\n${detectedCode}`,
+              "Identify dead code": `Analyze the following code for any unsued code or dead code, return only the updated code by removing the dead code:\n\n${detectedCode}`,
+              "Add Logging Statements": `Add appropriate logging statements to the following code for better traceability and debugging. Return only the updated code:\n\n${detectedCode}`,
+            };
+            
+            for (const action of relatedActions) {
+              let prompt = action;
+              if (/optimize|performance/i.test(action)) {
+                prompt = actionPromptMap["Optimize Performance"];
+              } else if (/documentation|docs|comment/i.test(action)) {
+                prompt = actionPromptMap["Generate Documentation"];
+              } else if (/refactor|structure/i.test(action)) {
+                prompt = actionPromptMap["Refactor Structure"];
+              } else if (/dead code|unused/i.test(action)) {
+                prompt = actionPromptMap["Identify dead code"];
+              } else if (/logging|log/i.test(action)) {
+                prompt = actionPromptMap["Add Logging Statements"];
+              } else if (/summarize|summary/i.test(action)) {
+                prompt = actionPromptMap["Summarize Code"];
+              }
+              
+              const result = await apiService.codeAssistant({
+                space_key: selectedSpace,
+                page_title: page,
+                instruction: prompt
+              });
+              const output = result.modified_code || result.converted_code || result.original_code || 'AI action completed successfully.';
+              if (/optimize|refactor|dead code|docs|logging|summarize/i.test(action)) {
+                aiActionOutput = output;
+              } else if (/convert|language|to\s+\w+/i.test(action)) {
+                conversionOutput = output;
+              } else {
+                modificationOutput = output;
+              }
+              lastOutput = output;
             }
-            lastOutput = output;
-          }
-          if (aiActionOutput) outputs.push(`AI Action Output:\n${aiActionOutput}`);
-          if (conversionOutput) outputs.push(`Target Language Conversion Output:\n${conversionOutput}`);
-          if (modificationOutput) outputs.push(`Modification Output:\n${modificationOutput}`);
-          if (!aiActionOutput && !conversionOutput && !modificationOutput && lastOutput) {
-            outputs.push(`Processed Code:\n${lastOutput}`);
-          }
-          formattedOutput = formatCodeAssistantOutput(outputs);
-          toolsTriggered.push('Code Assistant');
-          whyUsed.push(`Code Assistant was used to ${instruction.toLowerCase()} for the code page "${page}".`);
-          howDerived.push(`The code was processed using AI-powered analysis and transformation techniques.`);
-        } else if (tool === 'image_insights') {
-          // Image summarization using ImageInsights tool (no web search)
-          const images = await apiService.getImages(selectedSpace, page);
-          let output = '';
-          if (images && images.images && images.images.length > 0) {
-            const summaries = await Promise.all(images.images.map((imgUrl: string) => apiService.imageSummary({ space_key: selectedSpace, page_title: page, image_url: imgUrl })));
-            output = summaries.map((s, i) => `Image ${i + 1}: ${s.summary}`).join('\n\n');
+            if (aiActionOutput) outputs.push(`AI Action Output:\n${aiActionOutput}`);
+            if (conversionOutput) outputs.push(`Target Language Conversion Output:\n${conversionOutput}`);
+            if (modificationOutput) outputs.push(`Modification Output:\n${modificationOutput}`);
+            if (!aiActionOutput && !conversionOutput && !modificationOutput && lastOutput) {
+              outputs.push(`Processed Code:\n${lastOutput}`);
+            }
+            formattedOutput = formatCodeAssistantOutput(outputs);
+            toolsTriggered.push('Code Assistant');
+            whyUsed.push(`Code Assistant was used to ${instruction.toLowerCase()} for the code page "${page}".`);
+            howDerived.push(`The code was processed using AI-powered analysis and transformation techniques.`);
+          } else if (tool === 'image_insights') {
+            // Image summarization using ImageInsights tool (no web search)
+            const images = await apiService.getImages(selectedSpace, page);
+            let output = '';
+            if (images && images.images && images.images.length > 0) {
+              const summaries = await Promise.all(images.images.map((imgUrl: string) => apiService.imageSummary({ space_key: selectedSpace, page_title: page, image_url: imgUrl })));
+              output = summaries.map((s, i) => `Image ${i + 1}: ${s.summary}`).join('\n\n');
+            } else {
+              output = 'No images found on this page.';
+            }
+            outputs.push(output);
+            formattedOutput = formatImageInsightsOutput([{ name: page, summary: output }]);
+            toolsTriggered.push('Image Insights');
+            whyUsed.push(`Image Insights was used to analyze and summarize the images on page "${page}".`);
+            howDerived.push(`The images were processed using computer vision and AI analysis to extract meaningful insights and descriptions.`);
+          } else if (tool === 'ai_powered_search') {
+            // Only use AI Powered Search for text/code content, NOT for video/image
+            const res = await apiService.search({ space_key: selectedSpace, page_titles: [page], query: instruction });
+            outputs.push(res.response);
+            formattedOutput = formatAIPoweredSearchOutput(res.response);
+            toolsTriggered.push('AI Powered Search');
+            whyUsed.push(`AI Powered Search was used to analyze and summarize the content on page "${page}".`);
+            howDerived.push(`The content was processed using natural language processing to extract key information and provide comprehensive summaries.`);
+          } else if (tool === 'video_summarizer') {
+            // Video summarization using exact same logic as Tool Mode
+            const res = await apiService.videoSummarizer({ space_key: selectedSpace, page_title: page });
+            
+            // Create video content object similar to Tool Mode
+            const videoContent = {
+              id: Date.now().toString(),
+              name: page,
+              summary: res.summary,
+              quotes: res.quotes,
+              timestamps: res.timestamps,
+              qa: res.qa
+            };
+            
+            // Format output using the same structure as Tool Mode
+            let summaryText = videoContent.summary || 'No summary available.';
+            let quotesText = videoContent.quotes && videoContent.quotes.length > 0 
+              ? `\n\nKey Quotes:\n${videoContent.quotes.map(quote => `- "${quote}"`).join('\n')}`
+              : '';
+            let timestampsText = videoContent.timestamps && videoContent.timestamps.length > 0
+              ? `\n\nTimestamps:\n${videoContent.timestamps.map(ts => `- ${ts}`).join('\n')}`
+              : '';
+            
+            const fullOutput = `${summaryText}${quotesText}${timestampsText}`;
+            outputs.push(fullOutput);
+            
+            // Use the existing formatter function to maintain consistency
+            formattedOutput = formatVideoSummarizerOutput({
+              name: videoContent.name,
+              summary: videoContent.summary,
+              timestamps: videoContent.timestamps || [],
+              quotes: videoContent.quotes || []
+            });
+            
+            toolsTriggered.push('Video Summarizer');
+            whyUsed.push(`Video Summarizer was used to analyze and summarize the video content on page "${page}".`);
+            howDerived.push(`The video was processed using AI-powered analysis to extract key moments, timestamps, and comprehensive summaries.`);
           } else {
-            output = 'No images found on this page.';
+            // Fallback: use AI Powered Search for any other type (never web search)
+            const res = await apiService.search({ space_key: selectedSpace, page_titles: [page], query: instruction });
+            outputs.push(res.response);
+            formattedOutput = formatAIPoweredSearchOutput(res.response);
+            toolsTriggered.push('AI Powered Search');
+            whyUsed.push(`AI Powered Search was used as a fallback to analyze the content on page "${page}".`);
+            howDerived.push(`The content was processed using general AI analysis to provide relevant information.`);
           }
-          outputs.push(output);
-          formattedOutput = formatImageInsightsOutput([{ name: page, summary: output }]);
-          toolsTriggered.push('Image Insights');
-          whyUsed.push(`Image Insights was used to analyze and summarize the images on page "${page}".`);
-          howDerived.push(`The images were processed using computer vision and AI analysis to extract meaningful insights and descriptions.`);
-        } else if (tool === 'ai_powered_search') {
-          // Only use AI Powered Search for text/code content, NOT for video/image
-          const res = await apiService.search({ space_key: selectedSpace, page_titles: [page], query: instruction });
-          outputs.push(res.response);
-          formattedOutput = formatAIPoweredSearchOutput(res.response);
-          toolsTriggered.push('AI Powered Search');
-          whyUsed.push(`AI Powered Search was used to analyze and summarize the content on page "${page}".`);
-          howDerived.push(`The content was processed using natural language processing to extract key information and provide comprehensive summaries.`);
-        } else if (tool === 'video_summarizer') {
-          // Video summarization using exact same logic as Tool Mode
-          const res = await apiService.videoSummarizer({ space_key: selectedSpace, page_title: page });
           
-          // Create video content object similar to Tool Mode
-          const videoContent = {
-            id: Date.now().toString(),
-            name: page,
-            summary: res.summary,
-            quotes: res.quotes,
-            timestamps: res.timestamps,
-            qa: res.qa
-          };
-          
-          // Format output using the same structure as Tool Mode
-          let summaryText = videoContent.summary || 'No summary available.';
-          let quotesText = videoContent.quotes && videoContent.quotes.length > 0 
-            ? `\n\nKey Quotes:\n${videoContent.quotes.map(quote => `- "${quote}"`).join('\n')}`
-            : '';
-          let timestampsText = videoContent.timestamps && videoContent.timestamps.length > 0
-            ? `\n\nTimestamps:\n${videoContent.timestamps.map(ts => `- ${ts}`).join('\n')}`
-            : '';
-          
-          const fullOutput = `${summaryText}${quotesText}${timestampsText}`;
-          outputs.push(fullOutput);
-          
-          // Use the existing formatter function to maintain consistency
-          formattedOutput = formatVideoSummarizerOutput({
-            name: videoContent.name,
-            summary: videoContent.summary,
-            timestamps: videoContent.timestamps || [],
-            quotes: videoContent.quotes || []
-          });
-          
-          toolsTriggered.push('Video Summarizer');
-          whyUsed.push(`Video Summarizer was used to analyze and summarize the video content on page "${page}".`);
-          howDerived.push(`The video was processed using AI-powered analysis to extract key moments, timestamps, and comprehensive summaries.`);
-        } else {
-          // Fallback: use AI Powered Search for any other type (never web search)
-          const res = await apiService.search({ space_key: selectedSpace, page_titles: [page], query: instruction });
-          outputs.push(res.response);
-          formattedOutput = formatAIPoweredSearchOutput(res.response);
-          toolsTriggered.push('AI Powered Search');
-          whyUsed.push(`AI Powered Search was used as a fallback to analyze the content on page "${page}".`);
-          howDerived.push(`The content was processed using general AI analysis to provide relevant information.`);
+          if (!pageResults[page]) pageResults[page] = [];
+          // Only push the result for this page/instruction pair
+          pageResults[page].push({ instruction, tool, outputs, formattedOutput });
         }
-        if (!pageResults[page]) pageResults[page] = [];
-        // Only push the result for this page/instruction pair
-        pageResults[page].push({ instruction, tool, outputs, formattedOutput });
       }
       
       // Handle special cases for Impact Analyzer and Test Strategy
@@ -655,90 +604,66 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
                     return <h2 key={idx} className="text-xl font-bold text-gray-800 mt-6 mb-3">{line.substring(3)}</h2>;
                   } else if (line.startsWith('# ')) {
                     return <h1 key={idx} className="text-2xl font-bold text-gray-800 mt-8 mb-4">{line.substring(2)}</h1>;
-                  } else if (line.startsWith('- **')) {
-                    const match = line.match(/- \*\*(.*?)\*\*: (.*)/);
-                    if (match) {
-                      return <p key={idx} className="mb-2"><strong>{match[1]}:</strong> {match[2]}</p>;
-                    }
-                  } else if (line.startsWith('- ')) {
-                    return <p key={idx} className="mb-1 ml-4">• {line.substring(2)}</p>;
-                  } else if (line.trim()) {
+                  } else if (line.trim() === '') {
+                    return <br key={idx} />;
+                  } else {
                     return <p key={idx} className="mb-2 text-gray-700">{line}</p>;
                   }
-                  return <br key={idx} />;
                 })}
               </div>
             </div>
           );
-          toolsTriggered.push('Test Support Tool');
-          whyUsed.push(`Test Support Tool was used to generate test strategies for "${codePage}" using "${testInputPage}" as input.`);
-          howDerived.push(`The test strategy was generated by analyzing the code structure and test requirements using AI-powered testing methodologies.`);
+          toolsTriggered.push('Test Support');
+          whyUsed.push(`Test Support was used to generate test strategies for "${codePage}" based on "${testInputPage}".`);
+          howDerived.push(`The test strategy was generated by analyzing the code structure and requirements to create comprehensive testing approaches.`);
         }
       }
       
-      setPlanSteps((steps) => steps.map((s) => s.id === 1 ? { ...s, status: 'completed' } : s));
-      setCurrentStep(1);
-      setProgressPercent(50);
-      setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'running' } : s));
-      setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'completed' } : s));
-      setCurrentStep(2);
-      setProgressPercent(100);
-      // Prepare output tabs for new UI
-      const pageTabs = Object.keys(pageResults).length > 0 || impactAnalyzerResult || testStrategyResult ? [
-        {
-          id: 'per-page-results',
-          label: 'Page Results',
-          icon: FileText,
-          content: '',
-          results: [
-            ...(impactAnalyzerResult ? [{ impactAnalyzerResult }] : []),
-            ...(testStrategyResult ? [{ testStrategyResult }] : []),
-            ...Object.entries(pageResults).map(([page, results]) => ({ page, results })),
-          ],
-        }
-      ] : [];
-      const tabs = [
-        ...pageTabs,
+      // Create reasoning content
+      reasoningLines.push(`**Goal Analysis:** The user requested: "${goal}"`);
+      reasoningLines.push(`**Instructions Detected:** ${instructions.length} instruction(s) were identified: ${instructions.map((instr, idx) => `${idx + 1}. "${instr}"`).join(', ')}`);
+      reasoningLines.push(`**Pages Selected:** ${selectedPages.length} page(s) were selected for analysis: ${selectedPages.join(', ')}`);
+      reasoningLines.push(`**Tools Used:** ${toolsTriggered.length} tool(s) were utilized: ${toolsTriggered.join(', ')}`);
+      
+      // Create output tabs
+      const pageTabs = Object.entries(pageResults).map(([page, results]) => ({
+        id: `page-${page}`,
+        label: page,
+        icon: FileText,
+        content: results.map(r => `${r.instruction}: ${r.formattedOutput}`).join('\n\n'),
+        results: results.map(r => ({ page, instruction: r.instruction, formattedOutput: r.formattedOutput }))
+      }));
+      
+      const tabs: OutputTabWithResults[] = [
         {
           id: 'reasoning',
           label: 'Reasoning',
           icon: Brain,
-          content: `# Analysis Summary
-
-## Goal
-${goal}
-
-## Selected Pages
-${selectedPages.join(', ')}
-
-## Tools Used
-${[...new Set(toolsTriggered)].join(', ')}
-
-## Why These Tools Were Chosen
-
-${whyUsed.map((reason, index) => `${index + 1}. ${reason}`).join('\n')}
-
-## How Results Were Derived
-
-${howDerived.map((method, index) => `${index + 1}. ${method}`).join('\n')}
-
-## Processing Summary
-
-- **Total Instructions Processed:** ${instructions.length}
-- **Pages Analyzed:** ${selectedPages.length}
-- **Analysis Completed:** ${new Date().toLocaleString()}
-
----
-
-The AI assistant analyzed your request and automatically selected the most appropriate tools based on the content type of each page and the nature of your instructions. Each tool was chosen to provide the most relevant and accurate results for your specific needs.`,
+          content: reasoningLines.join('\n\n'),
         },
+        ...pageTabs,
+        ...(impactAnalyzerResult ? [{
+          id: 'impact-analyzer',
+          label: 'Impact Analysis',
+          icon: TrendingUp,
+          content: '',
+          results: [{ impactAnalyzerResult }]
+        }] : []),
+        ...(testStrategyResult ? [{
+          id: 'test-strategy',
+          label: 'Test Strategy',
+          icon: TestTube,
+          content: '',
+          results: [{ testStrategyResult }]
+        }] : []),
         {
-          id: 'selected-pages',
-          label: 'Selected Pages',
-          icon: FileText,
-          content: selectedPages.join(', '),
+          id: 'qa',
+          label: 'Q&A',
+          icon: MessageSquare,
+          content: 'Ask follow-up questions about the analysis results.',
         },
       ];
+      
       setOutputTabs(tabs);
       setActiveTab(pageTabs.length > 0 ? 'per-page-results' : 'reasoning');
       setActiveResult(null);
@@ -748,10 +673,11 @@ The AI assistant analyzed your request and automatically selected the most appro
     } catch (err: any) {
       setError(err.message || 'An error occurred during orchestration.');
     }
-         setIsPlanning(false);
-     setCurrentStep(2);
-     setProgressPercent(100);
-   };
+    
+    setIsPlanning(false);
+    setCurrentStep(2);
+    setProgressPercent(100);
+  };
 
   const handleFollowUp = async () => {
     if (!followUpQuestion.trim() || !selectedSpace || selectedPages.length === 0) return;
