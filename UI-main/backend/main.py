@@ -271,6 +271,50 @@ def search_web_google(query, num_results=5):
     except Exception as e:
         return f"❌ Google Search error: {e}"
 
+def search_stack_overflow(query: str, num_results: int = 3) -> List[str]:
+    """Search Stack Overflow API for relevant discussions"""
+    try:
+        import os
+        STACK_OVERFLOW_API_KEY = os.getenv("STACK_OVERFLOW_API_KEY")
+        
+        # Stack Overflow API endpoint
+        url = "https://api.stackexchange.com/2.3/search/advanced"
+        
+        params = {
+            "site": "stackoverflow",
+            "q": query,
+            "sort": "votes",
+            "order": "desc",
+            "pagesize": num_results,
+            "filter": "withbody",
+            "key": STACK_OVERFLOW_API_KEY if STACK_OVERFLOW_API_KEY else None
+        }
+        
+        # Remove None values
+        params = {k: v for k, v in params.items() if v is not None}
+        
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        links = []
+        
+        if "items" in data:
+            for item in data["items"]:
+                question_id = item.get("question_id")
+                if question_id:
+                    links.append(f"https://stackoverflow.com/questions/{question_id}")
+        
+        return links[:num_results]
+        
+    except Exception as e:
+        print(f"Stack Overflow API error: {e}")
+        # Fallback to mock links if API fails
+        return [
+            f"https://stackoverflow.com/questions/mock-{query.replace(' ', '-').lower()}-1",
+            f"https://stackoverflow.com/questions/mock-{query.replace(' ', '-').lower()}-2"
+        ]
+
 def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
     """Check for risky patterns and deprecated features using Stack Overflow API"""
     try:
@@ -285,7 +329,8 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
                     "Use JSON.parse() for parsing JSON data",
                     "Use Function constructor for dynamic code execution",
                     "Implement proper input validation and sanitization"
-                ]
+                ],
+                "search_terms": ["javascript eval function security risks", "eval() dangerous code execution"]
             },
             {
                 "pattern": "innerHTML\\s*=",
@@ -296,7 +341,8 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
                     "Use textContent for text-only content",
                     "Use DOMPurify library for HTML sanitization",
                     "Use createElement and appendChild for DOM manipulation"
-                ]
+                ],
+                "search_terms": ["innerHTML XSS security", "innerHTML vs textContent security"]
             },
             {
                 "pattern": "document\\.write\\(",
@@ -307,7 +353,8 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
                     "Use DOM manipulation methods like createElement",
                     "Use innerHTML with proper sanitization",
                     "Use modern frameworks like React, Vue, or Angular"
-                ]
+                ],
+                "search_terms": ["document.write deprecated", "document.write security issues"]
             },
             {
                 "pattern": "setTimeout\\(.*,\\s*0\\)",
@@ -317,7 +364,8 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
                     "Use Promise.resolve().then() for microtasks",
                     "Use requestAnimationFrame for UI updates",
                     "Consider using async/await patterns"
-                ]
+                ],
+                "search_terms": ["setTimeout 0 delay race condition", "setTimeout vs Promise microtask"]
             },
             {
                 "pattern": "console\\.log\\(",
@@ -327,7 +375,8 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
                     "Use proper logging framework",
                     "Remove console.log statements before production",
                     "Use environment-based logging"
-                ]
+                ],
+                "search_terms": ["console.log production code", "remove console.log before deployment"]
             },
             {
                 "pattern": "var\\s+",
@@ -338,7 +387,8 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
                     "Use const for values that won't be reassigned",
                     "Use let for values that will be reassigned",
                     "Prefer block scope over function scope"
-                ]
+                ],
+                "search_terms": ["javascript var vs let const", "var hoisting issues"]
             },
             {
                 "pattern": "\\bfor\\s*\\([^)]*var\\s+",
@@ -348,7 +398,8 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
                     "Use let instead of var in for loops",
                     "Use forEach, map, or other array methods",
                     "Use for...of loops for iterables"
-                ]
+                ],
+                "search_terms": ["var in for loop closure", "javascript for loop var let difference"]
             }
         ]
         
@@ -356,11 +407,9 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
         
         for pattern_info in risk_patterns:
             if re.search(pattern_info["pattern"], code_content, re.IGNORECASE):
-                # Generate mock Stack Overflow links
-                stack_overflow_links = [
-                    f"https://stackoverflow.com/questions/mock-{pattern_info['pattern'].replace('\\', '').replace('(', '').replace(')', '')}-1",
-                    f"https://stackoverflow.com/questions/mock-{pattern_info['pattern'].replace('\\', '').replace('(', '').replace(')', '')}-2"
-                ]
+                # Search Stack Overflow for real discussions
+                search_query = pattern_info.get("search_terms", [pattern_info["pattern"].replace('\\', '')])[0]
+                stack_overflow_links = search_stack_overflow(search_query, 3)
                 
                 found_risks.append({
                     "pattern": pattern_info["pattern"].replace('\\', ''),

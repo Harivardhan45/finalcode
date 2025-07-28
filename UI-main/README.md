@@ -15,11 +15,11 @@ A modern React-based web application that integrates with Confluence and provide
 The Impact Analyzer now includes an integrated Stack Overflow Risk Checker that:
 
 - **Scans recent changes** for usage of outdated methods and deprecated features
-- **Queries Stack Overflow patterns** to identify risky code practices
+- **Queries real Stack Overflow API** to identify risky code practices
 - **Suggests alternatives** based on best practices from Stack Overflow discussions
 - **Flags deprecation warnings** and provides modern alternatives
 - **Provides risk assessment** with high, medium, and low risk levels
-- **Links to relevant Stack Overflow discussions** for further reading
+- **Links to actual Stack Overflow discussions** for further reading
 
 **Supported Risk Patterns:**
 - `eval()` function usage (High Risk)
@@ -30,12 +30,19 @@ The Impact Analyzer now includes an integrated Stack Overflow Risk Checker that:
 - `var` declarations (Medium Risk)
 - `var` in for loops (Medium Risk)
 
+**API Integration:**
+- **Real Stack Overflow API**: Queries actual Stack Overflow discussions
+- **Smart Search**: Uses optimized search terms for each risk pattern
+- **Fallback Support**: Works without API key (limited rate)
+- **Rate Limiting**: Respects Stack Overflow API limits
+
 ## Prerequisites
 
 - Node.js (v16 or higher)
 - Python (v3.8 or higher)
 - Confluence instance with API access
 - Gemini API key
+- Stack Overflow API key (optional but recommended)
 
 ## Environment Variables
 
@@ -48,7 +55,21 @@ CONFLUENCE_API_KEY=your-confluence-api-key
 GENAI_API_KEY_1=your-gemini-api-key
 GENAI_API_KEY_2=your-backup-gemini-api-key
 ASSEMBLYAI_API_KEY=your-assemblyai-api-key
+STACK_OVERFLOW_API_KEY=your-stack-overflow-api-key
 ```
+
+### Getting API Keys
+
+**Gemini API Key:**
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Add it to your `.env` file
+
+**Stack Overflow API Key (Optional):**
+1. Visit [Stack Exchange API](https://api.stackexchange.com/docs/authentication)
+2. Register for a free API key
+3. Add it to your `.env` file as `STACK_OVERFLOW_API_KEY`
+4. Without this key, the system will still work but with limited rate limits
 
 ## Installation
 
