@@ -204,6 +204,51 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
     setError('');
 
     try {
+      // NEW BEHAVIOR: If both AI action and modification instruction are selected but NO target language
+      if (hasAiAction && hasModificationInstruction && !hasTargetLanguage) {
+        // 1. First apply the modification instruction to the original code
+        const modResult = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPage,
+          instruction: instruction,
+          target_language: ''
+        });
+        const modifiedCode = modResult.modified_code || modResult.converted_code || modResult.original_code || '';
+        
+        // 2. Then apply the AI action to the modified code
+        const actionPromptMap: Record<string, string> = {
+          "Optimize Performance": `Optimize the following code for performance without changing its functionality, return only the updated code:\n\n${modifiedCode}`,
+          "Generate Documentation": `Generate inline documentation and function-level comments for the following code, return only the updated code by commenting the each line of the code.:\n\n${modifiedCode}`,
+          "Refactor Structure": `Refactor the following code to improve structure, readability, and modularity, return only the updated code:\n\n${modifiedCode}`,
+          "Identify dead code": `Analyze the following code for any unsued code or dead code, return only the updated code by removing the dead code:\n\n${modifiedCode}`,
+          "Add Logging Statements": `Add appropriate logging statements to the following code for better traceability and debugging. Return only the updated code:\n\n${modifiedCode}`,
+        };
+        const prompt = actionPromptMap[aiAction];
+        if (!prompt) {
+          setAiActionOutput('');
+          setIsProcessing(false);
+          return;
+        }
+        const actionResult = await apiService.codeAssistant({
+          space_key: selectedSpace,
+          page_title: selectedPage,
+          instruction: prompt
+        });
+        const finalOutput = actionResult.modified_code || actionResult.converted_code || actionResult.original_code || 'AI action completed successfully.';
+        
+        // 3. Return one combined AI result
+        setAiActionOutput(finalOutput);
+        setModificationOutput('');
+        setConversionOutput('');
+        
+        // Add to instruction history
+        setInstructionHistory(prev => [{ instruction, output: finalOutput }, ...prev]);
+        setCurrentInstructionHistoryIndex(0);
+        
+        setProcessedCode('');
+        return;
+      }
+
       // If all three are selected: target language -> modification -> AI action
       if (hasTargetLanguage && hasModificationInstruction && hasAiAction) {
         // 1. Convert code to target language
@@ -224,7 +269,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         const modifiedCode = modResult.modified_code || modResult.converted_code || modResult.original_code || '';
         // 3. Apply AI action to modified code
         const actionPromptMap: Record<string, string> = {
-          "Summarize Code": `Summarize the following code in clear and concise language:\n\n${modifiedCode}`,
           "Optimize Performance": `Optimize the following code for performance without changing its functionality, return only the updated code:\n\n${modifiedCode}`,
           "Generate Documentation": `Generate inline documentation and function-level comments for the following code, return only the updated code by commenting the each line of the code.:\n\n${modifiedCode}`,
           "Refactor Structure": `Refactor the following code to improve structure, readability, and modularity, return only the updated code:\n\n${modifiedCode}`,
@@ -299,7 +343,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         setModificationOutput('');
         // 2. Apply AI action to converted code
         const actionPromptMap: Record<string, string> = {
-          "Summarize Code": `Summarize the following code in clear and concise language:\n\n${convertedCode}`,
           "Optimize Performance": `Optimize the following code for performance without changing its functionality, return only the updated code:\n\n${convertedCode}`,
           "Generate Documentation": `Generate inline documentation and function-level comments for the following code, return only the updated code by commenting the each line of the code.:\n\n${convertedCode}`,
           "Refactor Structure": `Refactor the following code to improve structure, readability, and modularity, return only the updated code:\n\n${convertedCode}`,
@@ -373,7 +416,6 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
     }
 
     const actionPromptMap: Record<string, string> = {
-      "Summarize Code": `Summarize the following code in clear and concise language:\n\n${detectedCode}`,
       "Optimize Performance": `Optimize the following code for performance without changing its functionality, return only the updated code:\n\n${detectedCode}`,
       "Generate Documentation": `Generate inline documentation and function-level comments for the following code, return only the updated code by commenting the each line of the code.:\n\n${detectedCode}`,
       "Refactor Structure": `Refactor the following code to improve structure, readability, and modularity, return only the updated code:\n\n${detectedCode}`,
