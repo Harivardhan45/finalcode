@@ -609,7 +609,6 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                             </>
                           ) : (
                             <>
-                              <span>📤</span>
                               <span>Push to Jira + Confluence + Slack</span>
                             </>
                           )}
