@@ -429,7 +429,7 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
             },
             {
                 "pattern": "subprocess\\.run.*shell=True",
-                "risk_level": "high",
+                "risk_level": "medium",
                 "description": "subprocess.run with shell=True can execute arbitrary shell commands",
                 "deprecation_warning": "shell=True is dangerous with user input",
                 "alternative_suggestions": [
@@ -438,6 +438,28 @@ def check_stack_overflow_risks(code_content: str) -> List[Dict[str, Any]]:
                     "Validate and sanitize all command inputs"
                 ],
                 "search_terms": ["python subprocess shell=True security", "subprocess shell injection"]
+            },
+            {
+                "pattern": "input\\(",
+                "risk_level": "medium",
+                "description": "input() without validation can lead to injection attacks",
+                "alternative_suggestions": [
+                    "Validate and sanitize all user input",
+                    "Use argparse for command-line arguments",
+                    "Implement proper input validation"
+                ],
+                "search_terms": ["python input() security", "input validation python"]
+            },
+            {
+                "pattern": "print\\(",
+                "risk_level": "low",
+                "description": "print() statements should be replaced with proper logging in production",
+                "alternative_suggestions": [
+                    "Use logging module for proper logging",
+                    "Remove print statements before production",
+                    "Use environment-based logging configuration"
+                ],
+                "search_terms": ["python print vs logging", "remove print statements production"]
             }
         ]
         
