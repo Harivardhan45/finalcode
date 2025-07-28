@@ -1037,7 +1037,7 @@ async def impact_analyzer(request: ImpactRequest, req: Request):
             # Check both old and new content for risks
             combined_content = f"{old_content}\n{new_content}"
             stack_overflow_risks = check_stack_overflow_risks(combined_content)
-        
+
         # Q&A if question provided
         qa_answer = None
         if request.question:
