@@ -21,6 +21,14 @@ export interface ImpactRequest {
   enable_stack_overflow_check?: boolean;
 }
 
+export interface CodeImpactRequest {
+  space_key: string;
+  old_code: string;
+  new_code: string;
+  question?: string;
+  enable_stack_overflow_check?: boolean;
+}
+
 export interface TestRequest {
   space_key: string;
   code_page_title: string;
@@ -258,6 +266,13 @@ class ApiService {
 
   async impactAnalyzer(request: ImpactRequest): Promise<ImpactResponse> {
     return this.makeRequest<ImpactResponse>('/impact-analyzer', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async codeImpactAnalyzer(request: CodeImpactRequest): Promise<ImpactResponse> {
+    return this.makeRequest<ImpactResponse>('/code-impact-analyzer', {
       method: 'POST',
       body: JSON.stringify(request),
     });

@@ -56,6 +56,12 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
   const [instructionHistory, setInstructionHistory] = useState<Array<{instruction: string, output: string}>>([]);
   const [currentInstructionHistoryIndex, setCurrentInstructionHistoryIndex] = useState<number | null>(null);
 
+  // --- Impact Analysis state ---
+  const [oldCodeVersion, setOldCodeVersion] = useState('');
+  const [newCodeVersion, setNewCodeVersion] = useState('');
+  const [impactAnalysisResult, setImpactAnalysisResult] = useState<any>(null);
+  const [isAnalyzingImpact, setIsAnalyzingImpact] = useState(false);
+
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
     { id: 'video' as const, label: 'Video Summarizer', icon: Video },
@@ -204,6 +210,9 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
     setError('');
 
     try {
+      // Store the original code as old version before processing
+      setOldCodeVersion(detectedCode);
+
       // If all three are selected: target language -> modification -> AI action
       if (hasTargetLanguage && hasModificationInstruction && hasAiAction) {
         // 1. Convert code to target language
@@ -244,6 +253,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         });
         const finalOutput = actionResult.modified_code || actionResult.converted_code || actionResult.original_code || 'AI action completed successfully.';
         setAiActionOutput(finalOutput);
+        setNewCodeVersion(finalOutput);
         
         // Add to instruction history if modification instruction was used
         if (hasModificationInstruction) {
@@ -274,6 +284,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         });
         const finalOutput = modResult.modified_code || modResult.converted_code || modResult.original_code || 'Modification completed successfully.';
         setModificationOutput(finalOutput);
+        setNewCodeVersion(finalOutput);
         
         // Add to instruction history
         setInstructionHistory(prev => [{ instruction, output: finalOutput }, ...prev]);
@@ -319,6 +330,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         });
         const finalOutput = actionResult.modified_code || actionResult.converted_code || actionResult.original_code || 'AI action completed successfully.';
         setAiActionOutput(finalOutput);
+        setNewCodeVersion(finalOutput);
         setProcessedCode('');
         return;
       }
@@ -339,6 +351,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         // Show converted code if target language is selected
         if (hasTargetLanguage && result.converted_code) {
           setConversionOutput(result.converted_code);
+          setNewCodeVersion(result.converted_code);
         } else {
           setConversionOutput('');
         }
@@ -346,6 +359,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         if (hasModificationInstruction && result.modified_code) {
           const finalOutput = result.modified_code;
           setModificationOutput(finalOutput);
+          setNewCodeVersion(finalOutput);
           
           // Add to instruction history
           setInstructionHistory(prev => [{ instruction, output: finalOutput }, ...prev]);
@@ -356,6 +370,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         // Fallback for legacy processedCode
         if (!hasTargetLanguage && !hasModificationInstruction && result.original_code) {
           setProcessedCode(result.original_code);
+          setNewCodeVersion(result.original_code);
         }
       }
     } catch (err) {
@@ -392,10 +407,41 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
         instruction: prompt
       });
 
-      setAiActionOutput(result.modified_code || result.converted_code || result.original_code || 'AI action completed successfully.');
+      const finalOutput = result.modified_code || result.converted_code || result.original_code || 'AI action completed successfully.';
+      setAiActionOutput(finalOutput);
+      setNewCodeVersion(finalOutput);
     } catch (err) {
       setError(`Failed to run AI action: ${err}`);
       console.error('Error running AI action:', err);
+    }
+  };
+
+  // Add impact analysis function
+  const runImpactAnalysis = async () => {
+    if (!oldCodeVersion || !newCodeVersion) {
+      setError('Please process code first to generate old and new versions for impact analysis.');
+      return;
+    }
+
+    setIsAnalyzingImpact(true);
+    setError('');
+
+    try {
+      // Use the new code impact analyzer API with direct code content
+      const result = await apiService.codeImpactAnalyzer({
+        space_key: selectedSpace,
+        old_code: oldCodeVersion,
+        new_code: newCodeVersion,
+        enable_stack_overflow_check: false
+      });
+
+      // Store the result
+      setImpactAnalysisResult(result);
+    } catch (err) {
+      setError('Failed to run impact analysis. Please try again.');
+      console.error('Error running impact analysis:', err);
+    } finally {
+      setIsAnalyzingImpact(false);
     }
   };
 
@@ -778,6 +824,25 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                     </>
                   )}
                 </button>
+
+                {/* Analyze Impact Button */}
+                <button
+                  onClick={runImpactAnalysis}
+                  disabled={!oldCodeVersion || !newCodeVersion || isAnalyzingImpact}
+                  className="w-full bg-green-600/90 backdrop-blur-sm text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10 mt-3"
+                >
+                  {isAnalyzingImpact ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Analyzing Impact...</span>
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="w-5 h-5" />
+                      <span>Analyze Impact</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -862,6 +927,82 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
                   </div>
                 )}
               </div>
+
+              {/* Impact Analysis Results */}
+              {impactAnalysisResult && (
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                    <TrendingUp className="w-5 h-5 mr-2" />
+                    Impact Analysis Results
+                  </h4>
+                  <div className="space-y-4">
+                    {/* Risk Score */}
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">Risk Score:</span>
+                        <span className={`text-lg font-bold ${
+                          impactAnalysisResult.risk_score >= 7 ? 'text-red-600' :
+                          impactAnalysisResult.risk_score >= 4 ? 'text-yellow-600' : 'text-green-600'
+                        }`}>
+                          {impactAnalysisResult.risk_score}/10
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Risk Level: <span className="font-medium">{impactAnalysisResult.risk_level}</span>
+                      </div>
+                    </div>
+
+                    {/* Change Statistics */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-white/20 text-center">
+                        <div className="text-lg font-bold text-blue-600">{impactAnalysisResult.lines_added}</div>
+                        <div className="text-xs text-gray-600">Lines Added</div>
+                      </div>
+                      <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-white/20 text-center">
+                        <div className="text-lg font-bold text-red-600">{impactAnalysisResult.lines_removed}</div>
+                        <div className="text-xs text-gray-600">Lines Removed</div>
+                      </div>
+                      <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-white/20 text-center">
+                        <div className="text-lg font-bold text-purple-600">{impactAnalysisResult.percentage_change}%</div>
+                        <div className="text-xs text-gray-600">Change</div>
+                      </div>
+                    </div>
+
+                    {/* Impact Analysis */}
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Impact Analysis:</h5>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">{impactAnalysisResult.impact_analysis}</p>
+                    </div>
+
+                    {/* Risk Analysis */}
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Risk Analysis:</h5>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">{impactAnalysisResult.risk_analysis}</p>
+                    </div>
+
+                    {/* Recommendations */}
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Recommendations:</h5>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">{impactAnalysisResult.recommendations}</p>
+                    </div>
+
+                    {/* Risk Factors */}
+                    {impactAnalysisResult.risk_factors && impactAnalysisResult.risk_factors.length > 0 && (
+                      <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">Risk Factors:</h5>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          {impactAnalysisResult.risk_factors.map((factor: string, index: number) => (
+                            <li key={index} className="flex items-start">
+                              <span className="text-red-500 mr-2">•</span>
+                              {factor}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Export Options */}
               {(processedCode || modificationOutput || conversionOutput || aiActionOutput) && (
