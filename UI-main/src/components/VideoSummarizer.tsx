@@ -51,6 +51,8 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
   const [previewDiff, setPreviewDiff] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isPushingToJira, setIsPushingToJira] = useState(false);
+  const [showPushToast, setShowPushToast] = useState(false);
   const exportFormats = [
     { value: 'markdown', label: 'Markdown' },
     { value: 'pdf', label: 'PDF' },
@@ -332,6 +334,35 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
     }
   }
 
+  const pushToJiraConfluenceSlack = async (video: VideoContent) => {
+    if (!video.summary) {
+      setError('No summary available for this video.');
+      return;
+    }
+
+    setIsPushingToJira(true);
+    setError('');
+
+    try {
+      const result = await apiService.pushToJiraConfluenceSlack({
+        summary: video.summary,
+        video_title: video.name
+      });
+
+      if (result.success) {
+        setShowPushToast(true);
+        setTimeout(() => setShowPushToast(false), 5000);
+      } else {
+        setError('Failed to push to Jira + Confluence + Slack. Please try again.');
+      }
+    } catch (err) {
+      setError('Failed to push to Jira + Confluence + Slack. Please try again.');
+      console.error('Error pushing to Jira + Confluence + Slack:', err);
+    } finally {
+      setIsPushingToJira(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-white flex items-center justify-center z-40 p-4">
       <div className="bg-white/80 backdrop-blur-xl border-2 border-[#0052cc] rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
@@ -565,6 +596,23 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                           className="px-3 py-1 bg-confluence-blue/90 backdrop-blur-sm text-white rounded text-sm hover:bg-confluence-blue transition-colors border border-white/10"
                         >
                           Export
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); pushToJiraConfluenceSlack(video); }}
+                          disabled={isPushingToJira}
+                          className="px-3 py-1 bg-green-600/90 backdrop-blur-sm text-white rounded text-sm hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors border border-white/10 flex items-center space-x-1"
+                        >
+                          {isPushingToJira ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Pushing...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>📤</span>
+                              <span>Push to Jira + Confluence + Slack</span>
+                            </>
+                          )}
                         </button>
                       </div>
                       {expandedVideo === video.id ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
@@ -930,6 +978,11 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
       {showToast && (
         <div style={{position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)', background: '#2684ff', color: 'white', padding: '16px 32px', borderRadius: 8, zIndex: 9999, fontWeight: 600, fontSize: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.15)'}}>
           Saved to Confluence! Please refresh this Confluence page to see your changes.
+        </div>
+      )}
+      {showPushToast && (
+        <div style={{position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '16px 32px', borderRadius: 8, zIndex: 9999, fontWeight: 600, fontSize: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.15)'}}>
+          ✅ Successfully pushed to Jira + Confluence + Slack!
         </div>
       )}
       {showPreview && (

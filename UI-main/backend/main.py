@@ -80,6 +80,10 @@ class DirectCodeImpactRequest(BaseModel):
     question: Optional[str] = None
     enable_stack_overflow_check: Optional[bool] = True
 
+class PushToJiraConfluenceSlackRequest(BaseModel):
+    summary: str
+    video_title: str
+
 class TestRequest(BaseModel):
     space_key: str
     code_page_title: str
@@ -1203,6 +1207,197 @@ async def direct_code_impact_analyzer(request: DirectCodeImpactRequest, req: Req
             "answer": qa_answer,
             "diff": full_diff_text,
             "stack_overflow_risks": stack_overflow_risks
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/push-to-jira-confluence-slack")
+async def push_to_jira_confluence_slack(request: PushToJiraConfluenceSlackRequest, req: Request):
+    """Push extracted tasks from video summary to Jira, Confluence, and Slack"""
+    try:
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
+        
+        
+        CONFLUENCE_USER_EMAIL = os.getenv("CONFLUENCE_USER_EMAIL")
+        CONFLUENCE_API_KEY = os.getenv("CONFLUENCE_API_KEY")
+        CONFLUENCE_BASE_URL = os.getenv("CONFLUENCE_BASE_URL")
+        CONFLUENCE_PAGE_ID = "55541855"  
+        CONFLUENCE_SPACE_KEY = "MFS"  
+        
+        JIRA_BASE_URL = os.getenv("JIRA_BASE_URL")
+        JIRA_EMAIL = os.getenv("JIRA_EMAIL")
+        JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
+        JIRA_PROJECT_KEY = "MFS"  
+        
+        SLACK_TOKEN = os.getenv("SLACK_TOKEN")
+        SLACK_CHANNEL = "#new-channel"  
+        
+        # Extract tasks using Gemini
+        prompt = f"""
+You are an assistant extracting action items from meeting notes.
+
+Please respond ONLY with a JSON array in this exact format, without any extra text or explanation:
+[
+  {{
+    "task": "Task description",
+    "assignee": "Person responsible",
+    "due": "YYYY-MM-DD"
+  }}
+]
+
+Meeting Notes:
+{request.summary}
+"""
+        
+        response = ai_model.generate_content(prompt)
+        output = response.text.strip()
+
+        if output.startswith("```"):
+            output = output.split("```")[1].strip()
+            if output.lower().startswith("json"):
+                output = "\n".join(output.split("\n")[1:]).strip()
+
+        tasks = json.loads(output)
+        
+        # Helper functions
+        def get_next_version(page_id: str) -> int:
+            auth = base64.b64encode(f"{CONFLUENCE_USER_EMAIL}:{CONFLUENCE_API_KEY}".encode()).decode()
+            res = requests.get(
+                f"{CONFLUENCE_BASE_URL}/rest/api/content/{page_id}",
+                headers={"Authorization": f"Basic {auth}"}
+            )
+            if res.status_code == 200:
+                return res.json()["version"]["number"] + 1
+            return 1
+
+        def update_confluence_page(page_id: str, title: str, tasks: list):
+            auth = base64.b64encode(f"{CONFLUENCE_USER_EMAIL}:{CONFLUENCE_API_KEY}".encode()).decode()
+            headers = {
+                "Authorization": f"Basic {auth}",
+                "Content-Type": "application/json"
+            }
+
+            table_html = "<table><tr><th>Task</th><th>Assignee</th><th>Due</th><th>Jira</th></tr>"
+            for item in tasks:
+                link_html = f"<a href='{item.get('link', '#')}' target='_blank'>View</a>" if "link" in item else "—"
+                table_html += f"<tr><td>{item['task']}</td><td>{item['assignee']}</td><td>{item['due']}</td><td>{link_html}</td></tr>"
+            table_html += "</table>"
+
+            version = get_next_version(page_id)
+            payload = {
+                "version": {"number": version},
+                "title": title,
+                "type": "page",
+                "body": {
+                    "storage": {
+                        "value": table_html,
+                        "representation": "storage"
+                    }
+                }
+            }
+
+            response = requests.put(
+                f"{CONFLUENCE_BASE_URL}/rest/api/content/{page_id}",
+                headers=headers,
+                json=payload
+            )
+            return response.status_code == 200
+
+        def create_jira_issue(summary: str, description: str, assignee: str) -> str:
+            url = f"{JIRA_BASE_URL}/rest/api/3/issue"
+            auth = (JIRA_EMAIL, JIRA_API_TOKEN)
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            }
+
+            adf_description = {
+                "type": "doc",
+                "version": 1,
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": description
+                            }
+                        ]
+                    }
+                ]
+            }
+
+            payload = {
+                "fields": {
+                    "project": {"key": JIRA_PROJECT_KEY},
+                    "summary": summary,
+                    "description": adf_description,
+                    "issuetype": {"name": "Task"},
+                    "assignee": {"emailAddress": assignee}
+                }
+            }
+
+            response = requests.post(url, headers=headers, auth=auth, json=payload)
+            print("🔄 Jira response:", response.status_code, response.text)
+
+            if response.status_code == 201:
+                return response.json()["key"]
+            else:
+                return None
+
+        def send_slack_notification(task: dict, issue_key: str, issue_link: str):
+            message = f"""
+📝 *New AI Task Created!*
+*Task:* {task['task']}
+*Assignee:* {task['assignee']}
+*Due:* {task['due']}
+🔗 *Jira:* <{issue_link}|{issue_key}>
+"""
+
+            response = requests.post(
+                "https://slack.com/api/chat.postMessage",
+                headers={
+                    "Authorization": f"Bearer {SLACK_TOKEN}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "channel": SLACK_CHANNEL,
+                    "text": message
+                }
+            )
+            print("📤 Slack response:", response.status_code, response.text)
+        
+        # Process tasks
+        task_links = []
+        for task in tasks:
+            issue_key = create_jira_issue(
+                summary=task["task"],
+                description=f"Auto-created from video: {request.video_title}. Due: {task['due']}",
+                assignee=task["assignee"]
+            )
+            if issue_key:
+                jira_link = f"{JIRA_BASE_URL}/browse/{issue_key}"
+                task_links.append({**task, "link": jira_link})
+                send_slack_notification(task, issue_key, jira_link)
+            else:
+                task_links.append({**task, "link": "❌ Jira issue failed"})
+
+        # Update Confluence
+        success = update_confluence_page(
+            page_id=CONFLUENCE_PAGE_ID,
+            title="Action Tracker – AI Updated",
+            tasks=task_links
+        )
+
+        return {
+            "success": success,
+            "tasks_created": len(tasks),
+            "jira_issues_created": len([t for t in task_links if "❌" not in t.get("link", "")]),
+            "confluence_updated": success,
+            "slack_notifications_sent": len([t for t in task_links if "❌" not in t.get("link", "")])
         }
         
     except Exception as e:

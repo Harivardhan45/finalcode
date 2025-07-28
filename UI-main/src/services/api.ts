@@ -28,6 +28,19 @@ export interface DirectCodeImpactRequest {
   enable_stack_overflow_check?: boolean;
 }
 
+export interface PushToJiraConfluenceSlackRequest {
+  summary: string;
+  video_title: string;
+}
+
+export interface PushToJiraConfluenceSlackResponse {
+  success: boolean;
+  tasks_created: number;
+  jira_issues_created: number;
+  confluence_updated: boolean;
+  slack_notifications_sent: number;
+}
+
 export interface TestRequest {
   space_key: string;
   code_page_title: string;
@@ -272,6 +285,13 @@ class ApiService {
 
   async directCodeImpactAnalyzer(request: DirectCodeImpactRequest): Promise<ImpactResponse> {
     return this.makeRequest<ImpactResponse>('/direct-code-impact-analyzer', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async pushToJiraConfluenceSlack(request: PushToJiraConfluenceSlackRequest): Promise<PushToJiraConfluenceSlackResponse> {
+    return this.makeRequest<PushToJiraConfluenceSlackResponse>('/push-to-jira-confluence-slack', {
       method: 'POST',
       body: JSON.stringify(request),
     });
