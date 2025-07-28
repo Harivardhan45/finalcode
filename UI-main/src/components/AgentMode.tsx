@@ -204,6 +204,9 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
   const [showHistory, setShowHistory] = useState(false);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
 
+  // Page search state
+  const [pageSearchTerm, setPageSearchTerm] = useState('');
+
   // Auto-detect and auto-select space and page if only one exists, or from URL if provided
   useEffect(() => {
     const loadSpacesAndPages = async () => {
@@ -944,24 +947,39 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages to Analyze
                   </label>
+                  {/* Page Search Input */}
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      value={pageSearchTerm}
+                      onChange={(e) => setPageSearchTerm(e.target.value)}
+                      placeholder="Search pages..."
+                      className="w-full p-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white/70 backdrop-blur-sm text-sm"
+                    />
+                  </div>
                   <div className="space-y-2 max-h-40 overflow-y-auto border border-white/30 rounded-lg p-2 bg-white/50 backdrop-blur-sm">
-                    {pages.map(page => (
-                      <label key={page} className="flex items-center space-x-2 p-2 hover:bg-white/30 rounded cursor-pointer backdrop-blur-sm">
-                        <input
-                          type="checkbox"
-                          checked={selectedPages.includes(page)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedPages([...selectedPages, page]);
-                            } else {
-                              setSelectedPages(selectedPages.filter(p => p !== page));
-                            }
-                          }}
-                          className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                        />
-                        <span className="text-sm text-gray-700">{page}</span>
-                      </label>
-                    ))}
+                    {pages
+                      .filter(page => 
+                        pageSearchTerm === '' || 
+                        page.toLowerCase().includes(pageSearchTerm.toLowerCase())
+                      )
+                      .map(page => (
+                        <label key={page} className="flex items-center space-x-2 p-2 hover:bg-white/30 rounded cursor-pointer backdrop-blur-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedPages.includes(page)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedPages([...selectedPages, page]);
+                              } else {
+                                setSelectedPages(selectedPages.filter(p => p !== page));
+                              }
+                            }}
+                            className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                          />
+                          <span className="text-sm text-gray-700">{page}</span>
+                        </label>
+                      ))}
                   </div>
                   <div className="flex items-center space-x-2 mb-2 mt-2">
                     <input
@@ -987,28 +1005,22 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                 <h3 className="text-2xl font-bold text-gray-800 mb-6">What do you want the assistant to help you achieve?</h3>
                 <div className="relative">
                   {/* Combined Voice Recorder and Textarea for goal input */}
-                  <div className="flex items-start space-x-2 mb-4">
-                    <div className="flex-1">
-                      <textarea
-                        value={goal}
-                        onChange={(e) => setGoal(e.target.value)}
-                        placeholder="Describe your goal in detail... (e.g., 'Help me analyze our documentation structure and recommend improvements for better user experience')"
-                        className="w-full p-4 border-2 border-orange-200/50 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none bg-white/70 backdrop-blur-sm text-lg"
-                        rows={4}
-                      />
-                    </div>
-                    <div className="flex flex-col space-y-2">
-                      <VoiceRecorder
-                        onConfirm={t => setGoal(t)}
-                        inputPlaceholder="Speak your goal..."
-                        buttonClassName="bg-orange-500/90 text-white hover:bg-orange-600 border-orange-500"
-                      />
+                  <div className="mb-4">
+                    <VoiceRecorder
+                      value={goal}
+                      onChange={setGoal}
+                      onConfirm={setGoal}
+                      inputPlaceholder="Describe your goal in detail..."
+                      buttonClassName="bg-orange-500/90 text-white hover:bg-orange-600 border-orange-500"
+                    />
+                    <div className="flex justify-center mt-4">
                       <button
                         onClick={handleGoalSubmit}
                         disabled={!goal.trim() || !selectedSpace || selectedPages.length === 0}
-                        className="bg-orange-500/90 backdrop-blur-sm text-white p-3 rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors border border-white/10"
+                        className="bg-orange-500/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors border border-white/10"
                       >
                         <Send className="w-5 h-5" />
+                        <span>Submit Goal</span>
                       </button>
                     </div>
                   </div>
