@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+// For opening a new tab
+// No extra import needed for window.open
 import { TestTube, BarChart3, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image, ChevronUp, Check } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
@@ -22,6 +24,44 @@ interface TestReport {
 }
 
 const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSelect, onModeSelect, autoSpaceKey, isSpaceAutoConnected }) => {
+  // --- Checkly Integration ---
+  const CHECKLY_API_KEY = "cu_f8631b426c514b6dba1c100ebf18d186";
+  // Utility function to create a Checkly test
+  async function createChecklyTest() {
+    const defaultScript = `// Example Playwright test\nconst { test, expect } = require('@playwright/test');\ntest('basic test', async ({ page }) => {\n  await page.goto('https://example.com');\n  await expect(page).toHaveTitle(/Example Domain/);\n});`;
+    const script = testReport?.strategy?.trim() ? testReport.strategy : defaultScript;
+    try {
+      const response = await fetch('https://api.checklyhq.com/v1/checks', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${CHECKLY_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: 'AI Test from Confluence',
+          type: 'API',
+          activated: true,
+          frequency: 5,
+          locations: ['eu-west-1'],
+          script,
+          degradedResponseTime: 2000,
+          maxResponseTime: 5000,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(err || 'Checkly API error');
+      }
+      const data = await response.json();
+      if (data && data.id) {
+        window.open(`https://app.checklyhq.com/checks/${data.id}`, '_blank');
+      } else {
+        alert('Checkly test created but no check ID returned.');
+      }
+    } catch (e: any) {
+      alert('Failed to create Checkly test: ' + (e.message || e));
+    }
+  }
   const [selectedSpace, setSelectedSpace] = useState('');
   const [codePage, setCodePage] = useState('');
   const [testInputPage, setTestInputPage] = useState('');
@@ -574,6 +614,17 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                 {/* Export Button */}
                 {testReport && (testReport.strategy || testReport.crossPlatform || testReport.sensitivity) && (
                   <div className="pt-4 border-t border-white/20 space-y-3">
+                    {/* Checkly Integration Button */}
+                    {testReport?.strategy && (
+                      <button
+                        onClick={createChecklyTest}
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-[#00DC82] text-white rounded-lg hover:bg-[#00b86b] transition-colors border border-white/10 mb-2"
+                        style={{ fontWeight: 600 }}
+                      >
+                        <span role="img" aria-label="checkly">✅</span>
+                        <span>Send to Checkly</span>
+                      </button>
+                    )}
                     {/* Export Format Selection */}
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-2">What format would you like to export in?</label>
