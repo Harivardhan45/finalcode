@@ -27,37 +27,30 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   // --- Checkly Integration ---
   const CHECKLY_API_KEY = "cu_f8631b426c514b6dba1c100ebf18d186";
   /**
-   * Create a Checkly test with the given strategy code.
+   * Create a Checkly test with the given script code.
    * Ensures all required fields are present and valid for Checkly API.
-   * @param {string} strategy - The test code to send to Checkly.
+   * @param {string} script - The test code to send to Checkly.
    */
-  async function createChecklyTest(strategy: string) {
-    // Fallback Playwright script with assert
-    const defaultScript = `const assert = require('assert');\nconst { test, expect } = require('@playwright/test');\ntest('basic test', async ({ page }) => {\n  await page.goto('https://example.com');\n  assert.ok(await page.title());\n});`;
-    let script = (strategy && typeof strategy === 'string' && strategy.trim()) ? strategy.trim() : defaultScript;
+  async function createChecklyTest(script: string) {
+    // Fallback script with assert for API check
+    const fallbackScript = `const assert = require('assert');\nconst res = await fetch("https://jsonplaceholder.typicode.com/todos/1");\nconst data = await res.json();\nassert.strictEqual(data.id, 1);`;
+    let finalScript = (script && typeof script === 'string' && script.trim()) ? script.trim() : fallbackScript;
     // Ensure script contains at least one assert
-    if (!/assert\s*\./.test(script)) {
-      script += `\nconst assert = require('assert');\nassert.ok(true);`;
+    if (!/assert\s*\./.test(finalScript)) {
+      finalScript += `\nconst assert = require('assert');\nassert.ok(true);`;
     }
     // Build the payload with all required fields
     const payload = {
-      name: 'AI Test from Confluence',
+      name: 'Generated Test',
       type: 'API',
+      checkType: 'API',
       activated: true,
       frequency: 5,
       locations: ['eu-west-1'],
-      script,
+      script: finalScript,
       degradedResponseTime: 2000,
       maxResponseTime: 5000,
     };
-    // Validate types and values
-    if (typeof payload.name !== 'string' || !payload.name) payload.name = 'AI Test from Confluence';
-    if (payload.type !== 'API') payload.type = 'API';
-    if (!Array.isArray(payload.locations) || payload.locations.length === 0) payload.locations = ['eu-west-1'];
-    if (typeof payload.frequency !== 'number' || payload.frequency < 5) payload.frequency = 5;
-    if (typeof payload.degradedResponseTime !== 'number') payload.degradedResponseTime = 2000;
-    if (typeof payload.maxResponseTime !== 'number') payload.maxResponseTime = 5000;
-    if (!payload.script || typeof payload.script !== 'string') payload.script = defaultScript;
     try {
       const response = await fetch('https://api.checklyhq.com/v1/checks', {
         method: 'POST',
@@ -71,6 +64,9 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
       let data;
       try { data = JSON.parse(text); } catch { data = text; }
       if (!response.ok) {
+        if (response.status === 400 && typeof data === 'object') {
+          console.error('Checkly 400 error:', data);
+        }
         alert('Checkly API error: ' + (data && data.message ? data.message : text));
         return;
       }
