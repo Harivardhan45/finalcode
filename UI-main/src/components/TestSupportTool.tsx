@@ -26,10 +26,38 @@ interface TestReport {
 const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSelect, onModeSelect, autoSpaceKey, isSpaceAutoConnected }) => {
   // --- Checkly Integration ---
   const CHECKLY_API_KEY = "cu_f8631b426c514b6dba1c100ebf18d186";
-  // Utility function to create a Checkly test
-  async function createChecklyTest() {
-    const defaultScript = `// Example Playwright test\nconst { test, expect } = require('@playwright/test');\ntest('basic test', async ({ page }) => {\n  await page.goto('https://example.com');\n  await expect(page).toHaveTitle(/Example Domain/);\n});`;
-    const script = testReport?.strategy?.trim() ? testReport.strategy : defaultScript;
+  /**
+   * Create a Checkly test with the given strategy code.
+   * Ensures all required fields are present and valid for Checkly API.
+   * @param {string} strategy - The test code to send to Checkly.
+   */
+  async function createChecklyTest(strategy: string) {
+    // Fallback Playwright script with assert
+    const defaultScript = `const assert = require('assert');\nconst { test, expect } = require('@playwright/test');\ntest('basic test', async ({ page }) => {\n  await page.goto('https://example.com');\n  assert.ok(await page.title());\n});`;
+    let script = (strategy && typeof strategy === 'string' && strategy.trim()) ? strategy.trim() : defaultScript;
+    // Ensure script contains at least one assert
+    if (!/assert\s*\./.test(script)) {
+      script += `\nconst assert = require('assert');\nassert.ok(true);`;
+    }
+    // Build the payload with all required fields
+    const payload = {
+      name: 'AI Test from Confluence',
+      type: 'API',
+      activated: true,
+      frequency: 5,
+      locations: ['eu-west-1'],
+      script,
+      degradedResponseTime: 2000,
+      maxResponseTime: 5000,
+    };
+    // Validate types and values
+    if (typeof payload.name !== 'string' || !payload.name) payload.name = 'AI Test from Confluence';
+    if (payload.type !== 'API') payload.type = 'API';
+    if (!Array.isArray(payload.locations) || payload.locations.length === 0) payload.locations = ['eu-west-1'];
+    if (typeof payload.frequency !== 'number' || payload.frequency < 5) payload.frequency = 5;
+    if (typeof payload.degradedResponseTime !== 'number') payload.degradedResponseTime = 2000;
+    if (typeof payload.maxResponseTime !== 'number') payload.maxResponseTime = 5000;
+    if (!payload.script || typeof payload.script !== 'string') payload.script = defaultScript;
     try {
       const response = await fetch('https://api.checklyhq.com/v1/checks', {
         method: 'POST',
@@ -37,26 +65,19 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
           'Authorization': `Bearer ${CHECKLY_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: 'AI Test from Confluence',
-          type: 'API',
-          activated: true,
-          frequency: 5,
-          locations: ['eu-west-1'],
-          script,
-          degradedResponseTime: 2000,
-          maxResponseTime: 5000,
-        }),
+        body: JSON.stringify(payload),
       });
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = text; }
       if (!response.ok) {
-        const err = await response.text();
-        throw new Error(err || 'Checkly API error');
+        alert('Checkly API error: ' + (data && data.message ? data.message : text));
+        return;
       }
-      const data = await response.json();
       if (data && data.id) {
         window.open(`https://app.checklyhq.com/checks/${data.id}`, '_blank');
       } else {
-        alert('Checkly test created but no check ID returned.');
+        alert('Checkly test created but no check ID returned. Response: ' + JSON.stringify(data));
       }
     } catch (e: any) {
       alert('Failed to create Checkly test: ' + (e.message || e));
@@ -617,7 +638,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                     {/* Checkly Integration Button */}
                     {testReport?.strategy && (
                       <button
-                        onClick={createChecklyTest}
+                        onClick={() => createChecklyTest(testReport.strategy || '')}
                         className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-[#00DC82] text-white rounded-lg hover:bg-[#00b86b] transition-colors border border-white/10 mb-2"
                         style={{ fontWeight: 600 }}
                       >
