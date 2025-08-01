@@ -27,19 +27,12 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   // --- Checkly Integration ---
   const CHECKLY_API_KEY = "cu_f8631b426c514b6dba1c100ebf18d186";
   /**
-   * Create a Checkly test with the given script code.
+   * Create a Checkly API check with a valid request field.
    * Ensures all required fields are present and valid for Checkly API.
-   * @param {string} script - The test code to send to Checkly.
+   * @param {string} _unused - Not used, kept for compatibility with button call.
    */
-  async function createChecklyTest(script: string) {
-    // Fallback script with assert for API check
-    const fallbackScript = `const assert = require('assert');\nconst res = await fetch("https://jsonplaceholder.typicode.com/todos/1");\nconst data = await res.json();\nassert.strictEqual(data.id, 1);`;
-    let finalScript = (script && typeof script === 'string' && script.trim()) ? script.trim() : fallbackScript;
-    // Ensure script contains at least one assert
-    if (!/assert\s*\./.test(finalScript)) {
-      finalScript += `\nconst assert = require('assert');\nassert.ok(true);`;
-    }
-    // Build the payload with all required fields
+  async function createChecklyTest(_unused: string) {
+    // Build the payload for an API check (not a script check)
     const payload = {
       name: 'Generated Test',
       type: 'API',
@@ -47,9 +40,19 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
       activated: true,
       frequency: 5,
       locations: ['eu-west-1'],
-      script: finalScript,
       degradedResponseTime: 2000,
       maxResponseTime: 5000,
+      request: {
+        method: 'GET',
+        url: 'https://jsonplaceholder.typicode.com/todos/1',
+        assertions: [
+          {
+            source: 'STATUS_CODE',
+            comparison: 'EQUALS',
+            target: 200
+          }
+        ]
+      }
     };
     try {
       const response = await fetch('https://api.checklyhq.com/v1/checks', {
